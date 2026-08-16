@@ -1,0 +1,14 @@
+{% extends "week_base.html" %}
+{% set page_title = "Task — " + comp.title %}
+{% block week_content %}
+<section class="panel open">
+  <div class="prose">{{ comp.task | markdown }}</div>
+</section>
+
+<nav class="pager">
+  <a class="pager-next" href="/week/{{ comp.week }}/data">
+    <span class="pk">Next</span>
+    <span class="pt">Get the data</span>
+  </a>
+</nav>
+{% endblock %}

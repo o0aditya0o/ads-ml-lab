@@ -1,0 +1,117 @@
+{% extends "week_base.html" %}
+{% set page_title = "Submit — " + comp.title %}
+{% block week_content %}
+<section class="panel">
+  <header>
+    <div>
+      <h2>Submit predictions</h2>
+      <p class="muted small">Scored immediately against the public split.</p>
+    </div>
+    {% if user %}
+    <div class="quota">
+      <span>{{ used_today }}/{{ comp.max_daily_submissions }} today</span>
+      <span class="quota-track"><span class="quota-fill"
+        style="width:{{ (100 * used_today / comp.max_daily_submissions)|round(1) }}%"></span></span>
+    </div>
+    {% endif %}
+  </header>
+
+  {% if user %}
+    <form method="post" action="/week/{{ comp.week }}/submit" enctype="multipart/form-data"
+          class="submit-form stack" id="subform">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+
+      <label class="dropzone" id="dz">
+        <input type="file" name="file" accept=".csv,.gz" required id="dzinput">
+        <div class="dz-icon">↑</div>
+        <div class="dz-main" id="dzmain">Drop your predictions here, or click to choose</div>
+        <div class="dz-sub" id="dzsub">.csv or .csv.gz · up to {{ comp.max_upload_mb }} MB</div>
+      </label>
+
+      <label>Model name <span class="hint">shown on the leaderboard</span>
+        <input type="text" name="label" maxlength="60"
+               placeholder="lightgbm · 63 leaves · hashed cats">
+      </label>
+
+      <ul class="format-checks">
+        <li><span class="tickmark">✓</span> Header row required:
+            <code>{{ comp.id_column }},prediction</code></li>
+        <li><span class="tickmark">✓</span> One row per test impression — every id, no extras</li>
+        <li><span class="tickmark">✓</span> Predictions in <code>[0, 1]</code>; apply a sigmoid to logits</li>
+        <li><span class="tickmark">✓</span> Order does not matter, the scorer joins on id</li>
+      </ul>
+
+      <div><button class="btn" type="submit">Score it</button></div>
+      <p class="muted small" style="margin:0">
+        {{ comp.max_daily_submissions }} scored submissions per 24 hours. Rejected files
+        do not count — the cap exists to stop leaderboard overfitting, not to punish you
+        for a bad header. Tune on your own validation split.
+      </p>
+    </form>
+  {% else %}
+    <div class="signin-prompt">
+      <p>Accounts exist only to attribute leaderboard rows — the data is downloadable
+         without one.</p>
+      <a class="btn" href="/signup">Sign up</a>
+      <a class="btn ghost" href="/login?next=/week/{{ comp.week }}/submit">Sign in</a>
+    </div>
+  {% endif %}
+</section>
+
+{% if mine %}
+<section class="panel">
+  <header><div><h2>Your submissions</h2></div></header>
+  <table class="hist">
+    <thead><tr>
+      <th>when</th><th>model</th><th></th>
+      <th class="n">{{ comp.primary_metric.label }}</th><th class="n">AUC</th><th class="n">calib.</th>
+    </tr></thead>
+    <tbody>
+    {% for s in mine %}
+      <tr class="{{ 'rejected' if s.status == 'rejected' }}">
+        <td class="mono dim">{{ s.created_at.strftime('%d %b %H:%M') }}</td>
+        <td>{{ s.label or '—' }}</td>
+        <td>{% if s.status == 'rejected' %}<span class="chip bad">rejected</span>
+            {% else %}<span class="chip live">scored</span>{% endif %}</td>
+        <td class="n mono">{{ comp.primary_metric.fmt.format(s.public_score) if s.public_score is not none else '—' }}</td>
+        <td class="n mono">{{ '%.5f' % (s.metrics_json | fromjson).get('auc') if s.public_score is not none else '—' }}</td>
+        <td class="n mono">{{ '%.4f' % (s.metrics_json | fromjson).get('calibration_ratio') if s.public_score is not none else '—' }}</td>
+      </tr>
+      {% if s.status == 'rejected' %}
+      <tr><td class="errmsg" colspan="6">{{ s.error }}</td></tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<nav class="pager">
+  <a class="pager-prev" href="/week/{{ comp.week }}/data"><span class="pk">Back</span><span class="pt">Data</span></a>
+  <a class="pager-next" href="/week/{{ comp.week }}/leaderboard"><span class="pk">Next</span><span class="pt">Leaderboard</span></a>
+</nav>
+
+<script>
+(function () {
+  var dz = document.getElementById('dz'), input = document.getElementById('dzinput');
+  if (!dz || !input) return;
+  var main = document.getElementById('dzmain'), sub = document.getElementById('dzsub');
+  function show(f) {
+    if (!f) return;
+    dz.classList.add('has-file');
+    main.textContent = f.name;
+    sub.textContent = (f.size / 1048576).toFixed(2) + ' MB — ready to score';
+  }
+  input.addEventListener('change', function () { show(input.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (e) {
+    dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.add('hot'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.remove('hot'); });
+  });
+  dz.addEventListener('drop', function (ev) {
+    if (ev.dataTransfer.files.length) { input.files = ev.dataTransfer.files; show(input.files[0]); }
+  });
+})();
+</script>
+{% endblock %}

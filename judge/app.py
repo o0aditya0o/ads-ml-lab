@@ -28,6 +28,7 @@ from judge import security as sec                                    # noqa: E40
 from judge.charts import calibration_scatter, score_bar_width        # noqa: E402
 from judge.competitions import COMPETITIONS, UPCOMING, get           # noqa: E402
 from judge.icons import accent, week_icon                            # noqa: E402
+from judge import study as study_mod                                 # noqa: E402
 from judge.models import Submission, User, engine, init_db, utcnow   # noqa: E402
 from judge.scoring import Rejected, score_submission                 # noqa: E402
 
@@ -49,7 +50,7 @@ def _markdown(text: str) -> str:
     html = md.markdown(text or "", extensions=["fenced_code", "tables", "sane_lists"])
     allowed = set(bleach.sanitizer.ALLOWED_TAGS) | {
         "p", "pre", "h1", "h2", "h3", "h4", "h5", "table", "thead", "tbody", "tr", "th",
-        "td", "br", "hr", "span", "div", "img"}
+        "td", "br", "hr", "span", "div", "img", "blockquote", "em", "strong"}
     return Markup(bleach.clean(
         html, tags=allowed,
         attributes={"a": ["href", "title", "rel", "target"], "img": ["src", "alt"],
@@ -310,72 +311,107 @@ def index(request: Request):
                   leaders=leaders, totals=totals)
 
 
-@app.get("/week/{week}", response_class=HTMLResponse)
-def week_page(request: Request, week: int):
+TABS = [
+    ("task", "Task", ""),
+    ("data", "Data", "/data"),
+    ("submit", "Submit", "/submit"),
+    ("leaderboard", "Leaderboard", "/leaderboard"),
+    ("study", "Study material", "/study"),
+]
+
+
+def week_ctx(request: Request, week: int, active: str) -> tuple:
+    """Shared context for every week page: the competition, the board, the header facts.
+
+    Each tab is its own URL now rather than an anchor on one long scroll, so this is the
+    piece they all need and none of them should each rebuild.
+    """
     comp = get(week)
     if comp is None:
         raise HTTPException(404, f"Week {week} has no competition yet.")
     with Session(engine) as db:
         user = current_user(request, db)
-        mine = []
+        board = leaderboard_rows(db, week)
+    return comp, board, {
+        "comp": comp, "board": board, "active": active, "tabs": TABS,
+        "facts": competition_facts(comp),
+    }
+
+
+@app.get("/week/{week}", response_class=HTMLResponse)
+def week_task(request: Request, week: int):
+    comp, board, ctx = week_ctx(request, week, "task")
+    return render(request, "week_task.html", **ctx)
+
+
+@app.get("/week/{week}/data", response_class=HTMLResponse)
+def week_data(request: Request, week: int):
+    comp, board, ctx = week_ctx(request, week, "data")
+    return render(request, "week_data.html", **ctx)
+
+
+@app.get("/week/{week}/submit", response_class=HTMLResponse)
+def week_submit(request: Request, week: int):
+    comp, board, ctx = week_ctx(request, week, "submit")
+    mine, used_today = [], 0
+    with Session(engine) as db:
+        user = current_user(request, db)
         if user:
             mine = db.exec(
                 select(Submission)
                 .where(Submission.user_id == user.id, Submission.week == week)
                 .order_by(Submission.created_at.desc()).limit(25)).all()
-        board = leaderboard_rows(db, week)
-        used_today = 0
-        if user:
             used_today = db.exec(select(func.count(Submission.id)).where(
                 Submission.user_id == user.id, Submission.week == week,
                 Submission.status == "scored",
                 Submission.created_at >= utcnow() - timedelta(days=1))).one()
+    return render(request, "week_submit.html", mine=mine, used_today=used_today, **ctx)
 
-    chart = calibration_scatter(board, you=user.display_name if user else None)
-    return render(request, "week.html", comp=comp, board=board, mine=mine,
-                  study=study_material(week), facts=competition_facts(comp),
-                  chart=chart, used_today=used_today)
+
+@app.get("/week/{week}/study", response_class=HTMLResponse)
+def week_study(request: Request, week: int):
+    comp, board, ctx = week_ctx(request, week, "study")
+    return render(request, "week_study.html", study=study_mod.summary(week), **ctx)
+
+
+@app.get("/week/{week}/study/paper/{name}", response_class=HTMLResponse)
+def week_paper(request: Request, week: int, name: str):
+    """Read a paper without leaving the site.
+
+    PDFs get an inline viewer; the Privacy Sandbox markdown explainers render as prose.
+    """
+    comp, board, ctx = week_ctx(request, week, "study")
+    path = study_mod.resolve_paper(week, name)
+    if path is None:
+        raise HTTPException(404, "No such paper in this week's folder.")
+    meta = next((p for p in study_mod.papers(week) if p["file"] == path.name), None)
+    body = path.read_text(errors="replace") if path.suffix.lower() == ".md" else None
+    return render(request, "week_paper.html", paper=meta or {"file": path.name,
+                  "title": path.stem, "kind": path.suffix.lstrip(".")},
+                  md_body=body, **ctx)
+
+
+# The filename is the LAST path segment on purpose: Chrome's built-in PDF viewer titles
+# the document from the URL tail, so a trailing "/raw" would label every paper "raw".
+@app.get("/week/{week}/paper/{name}")
+def week_paper_raw(request: Request, week: int, name: str):
+    """Serve the file itself, inline rather than as a download, for the embedded viewer."""
+    path = study_mod.resolve_paper(week, name)
+    if path is None:
+        raise HTTPException(404, "No such paper.")
+    sec.rate_limit(f"paper:{sec.client_ip(request)}", limit=120, window_s=300)
+    media = study_mod.SERVABLE[path.suffix.lower()]
+    return FileResponse(path, media_type=media,
+                        headers={"Content-Disposition": f'inline; filename="{path.name}"'})
 
 
 @app.get("/week/{week}/leaderboard", response_class=HTMLResponse)
 def leaderboard_page(request: Request, week: int):
-    comp = get(week)
-    if comp is None:
-        raise HTTPException(404, "No such competition.")
+    comp, board, ctx = week_ctx(request, week, "leaderboard")
     with Session(engine) as db:
         user = current_user(request, db)
-        board = leaderboard_rows(db, week)
     chart = calibration_scatter(board, you=user.display_name if user else None)
-    return render(request, "leaderboard.html", comp=comp, board=board, chart=chart)
-
-
-def study_material(week: int) -> dict:
-    """Pull the week's README and paper index straight off disk.
-
-    The study material is not duplicated into the judge — it *is* the repo's week folder,
-    rendered. One source of truth, so editing the README updates the site.
-    """
-    import re
-
-    repo = JUDGE.parent
-    hits = sorted(repo.glob(f"week{week:02d}_*"))
-    if not hits:
-        return {}
-    d = hits[0]
-    papers = []
-    idx = d / "papers" / "README.md"
-    if idx.exists():
-        for m in re.finditer(r"- \*\*(.+?)\*\*\s*\n\s*(\[`(.+?)`\]\(.+?\)|`(.+?)`.*)", idx.read_text()):
-            papers.append({"title": m.group(1), "file": m.group(3) or m.group(4),
-                           "available": bool(m.group(3))})
-    readme = (d / "README.md")
-    return {
-        "folder": d.name,
-        "readme": readme.read_text() if readme.exists() else "",
-        "papers": papers,
-        "notebook": f"{d.name}.ipynb",
-        "github": f"https://github.com/o0aditya0o/ads-ml-lab/tree/main/{d.name}",
-    }
+    return render(request, "week_leaderboard.html", chart=chart, **ctx)
 
 
 # --------------------------------------------------------------------------------------
@@ -420,11 +456,11 @@ async def submit(request: Request, week: int,
         user = current_user(request, db)
         if user is None:
             flash(request, "Sign in to submit.", "error")
-            return RedirectResponse(f"/login?next=/week/{week}", status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(f"/login?next=/week/{week}/submit", status.HTTP_303_SEE_OTHER)
 
         if not comp.open:
             flash(request, "This competition is closed.", "error")
-            return RedirectResponse(f"/week/{week}", status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(f"/week/{week}/submit", status.HTTP_303_SEE_OTHER)
 
         # The daily cap counts SCORED submissions only. Its purpose is to stop
         # leaderboard overfitting, and a file rejected for a bad header taught the
@@ -438,7 +474,7 @@ async def submit(request: Request, week: int,
             flash(request, f"Daily limit reached ({comp.max_daily_submissions} scored "
                            f"submissions per 24h). The limit is the point — tune on your "
                            f"own validation split, not on the leaderboard.", "error")
-            return RedirectResponse(f"/week/{week}", status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(f"/week/{week}/submit", status.HTTP_303_SEE_OTHER)
 
         # This one is abuse protection, so it counts every attempt including rejections
         # — each still costs a parse of a multi-MB upload.
@@ -448,7 +484,7 @@ async def submit(request: Request, week: int,
         if len(raw) > MAX_UPLOAD_BYTES:
             flash(request, f"File is larger than {MAX_UPLOAD_BYTES // 1024 // 1024} MB. "
                            f"Gzip it — a 400k-row submission compresses to a few MB.", "error")
-            return RedirectResponse(f"/week/{week}", status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(f"/week/{week}/submit", status.HTTP_303_SEE_OTHER)
 
         row = Submission(user_id=user.id, week=week, label=(label or "").strip()[:60])
         try:
@@ -458,14 +494,14 @@ async def submit(request: Request, week: int,
             db.add(row)
             db.commit()
             flash(request, f"Rejected: {e}", "error")
-            return RedirectResponse(f"/week/{week}", status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(f"/week/{week}/submit", status.HTTP_303_SEE_OTHER)
         except Exception as e:
             row.status = "rejected"
             row.error = f"Scoring failed unexpectedly: {type(e).__name__}"
             db.add(row)
             db.commit()
             flash(request, row.error, "error")
-            return RedirectResponse(f"/week/{week}", status.HTTP_303_SEE_OTHER)
+            return RedirectResponse(f"/week/{week}/submit", status.HTTP_303_SEE_OTHER)
 
         pj, qj = score.as_json()
         row.status, row.n_rows = "scored", score.n_rows
@@ -477,7 +513,7 @@ async def submit(request: Request, week: int,
         m = comp.primary_metric
         flash(request, f"Scored. Public {m.label} = {m.fmt.format(score.public)} "
                        f"(AUC {score.public_metrics.get('auc', float('nan')):.5f}).", "ok")
-    return RedirectResponse(f"/week/{week}", status.HTTP_303_SEE_OTHER)
+    return RedirectResponse(f"/week/{week}/submit", status.HTTP_303_SEE_OTHER)
 
 
 # --------------------------------------------------------------------------------------

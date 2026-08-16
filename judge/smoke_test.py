@@ -78,14 +78,43 @@ def main() -> int:
     check("index renders", st == 200 and b"actually gets wrong" in body, f"status {st}")
     check("index lists locked weeks", body.count(b"locked") >= 11)
     st, body = req("/week/1")
-    check("week 1 page renders", st == 200 and b"CVR baseline" in body, f"status {st}")
+    check("task page renders", st == 200 and b"CVR baseline" in body, f"status {st}")
     check("task text is rendered as HTML", b"<h3>" in body)
     check("stat strip is populated", b"train rows" in body and b"base rate" in body)
-    check("calibration chart is rendered", b"svg class=\"chart\"" in body or b'class="chart"' in body)
-    check("score bars are rendered", b"score-fill" in body)
     check("theme toggle present", b"theme-toggle" in body)
-    check("study material appears", b"Study material" in body)
+    check("tab nav present on every page", body.count(b'href="/week/1') >= 4)
+    check("active tab is marked", b'aria-current="page"' in body)
+
+    print("\n" + "=" * 70, "\ntabs are their own pages\n" + "=" * 70)
+    for path, needle in [("/week/1/data", b"sample_submission.csv.gz"),
+                         ("/week/1/submit", b"Submit predictions"),
+                         ("/week/1/leaderboard", b"Public leaderboard"),
+                         ("/week/1/study", b"Week notes")]:
+        st, body = req(path)
+        check(f"{path} renders", st == 200 and needle in body, f"status {st}")
+
+    st, body = req("/week/1/leaderboard")
+    check("calibration chart is rendered", b'class="chart"' in body)
+    check("score bars are rendered", b"score-fill" in body)
     check("leaderboard shows seeded baselines", b"base_rate" in body and b"logreg" in body)
+
+    print("\n" + "=" * 70, "\nstudy material is served inline\n" + "=" * 70)
+    st, body = req("/week/1/study")
+    check("week README rendered inline", b"What surprised me" in body)
+    check("notebook rendered inline", b"nb-code" in body and b"harness ready" in body)
+    check("no github link in study material", b"github.com" not in body.split(b"<footer")[0].split(b"<main")[1])
+    check("papers listed with titles", b"View from the Trenches" in body)
+
+    paper = b"mcmahan2013-ftrl-view-from-the-trenches.pdf".decode()
+    st, body = req(f"/week/1/study/paper/{paper}")
+    check("paper viewer page renders", st == 200 and b"<object" in body, f"status {st}")
+    st, raw = req(f"/week/1/paper/{paper}")
+    check("paper bytes served inline", st == 200 and raw[:4] == b"%PDF", f"status {st}")
+
+    for probe in ["../../../etc/passwd", "..%2F..%2Fadslab%2Fdata.py", "README.md",
+                  "week01_foundations.ipynb", "solution.parquet"]:
+        st, _ = req(f"/week/1/paper/{probe}")
+        check(f"paper route blocks: {probe}", st == 404, f"status {st}")
 
     st, _ = req("/week/99")
     check("unknown week 404s", st == 404, f"status {st}")
@@ -195,12 +224,12 @@ def main() -> int:
     if m2:
         print(f"       scored NE = {m2.group(1).decode()}")
 
-    st, body = req("/week/1")
+    st, body = req("/week/1/leaderboard")
     check("entrant appears on leaderboard", NAME.encode() in body)
     check("baselines still ranked", b"baseline" in body)
 
     st, body = req("/week/1/leaderboard")
-    check("standalone leaderboard renders", st == 200 and NAME.encode() in body)
+    check("leaderboard page renders", st == 200 and NAME.encode() in body)
 
     print("\n" + "=" * 70)
     print(f"{len(PASSED)} passed, {len(FAILED)} failed")

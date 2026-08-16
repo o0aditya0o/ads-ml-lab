@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ page_title or comp.title }} — ads-ml-lab judge{% endblock %}
+{% block content %}
+<div style="--wk: {{ week_accent(comp.week) }}">
+
+<nav class="crumbs">
+  <a href="/">all weeks</a> <span class="dim">/</span> Week {{ '%02d' % comp.week }}
+  {%- if active != 'task' %} <span class="dim">/</span>
+    {{ tabs | selectattr('0', 'equalto', active) | map(attribute='1') | first }}
+  {%- endif %}
+</nav>
+
+<header class="comp-head">
+  <div class="head-row">
+    <span class="mark-badge lg">{{ week_icon(comp.week, 30) }}</span>
+    <div class="head-body">
+      <div class="title-row">
+        <h1>{{ comp.title.split('—')[1].strip() }}</h1>
+        {% if comp.is_prepared %}<span class="chip live"><span class="dot"></span>open</span>{% endif %}
+        <span class="chip accent">ranked on {{ comp.primary_metric.label }}</span>
+      </div>
+      <p class="lede">{{ comp.tagline }}</p>
+    </div>
+  </div>
+
+  <div class="statstrip">
+    <div class="stat"><span class="v">{{ facts.train_rows }}</span><span class="k">train rows</span></div>
+    <div class="stat"><span class="v">{{ facts.test_rows }}</span><span class="k">test rows</span></div>
+    <div class="stat"><span class="v">{{ facts.base_rate }}</span><span class="k">base rate</span></div>
+    <div class="stat"><span class="v">{{ facts.split }}</span><span class="k">split</span></div>
+    <div class="stat"><span class="v">{{ board|length }}</span><span class="k">on the board</span></div>
+  </div>
+</header>
+
+<nav class="subnav" aria-label="Week sections">
+  {% for key, label, suffix in tabs %}
+    <a href="/week/{{ comp.week }}{{ suffix }}"
+       class="{{ 'active' if key == active }}"
+       {% if key == active %}aria-current="page"{% endif %}>{{ label }}</a>
+  {% endfor %}
+</nav>
+
+{% block week_content %}{% endblock %}
+
+</div>
+{% endblock %}

@@ -28,8 +28,29 @@ Scoring calls the **same** `adslab.metrics` the notebooks use. If your local num
 the leaderboard disagree, it is the split or the join, never the metric.
 
 Study material is read off disk from the repo's `weekNN_*/` folder at request time — the
-week README and paper index are not duplicated into the judge, so editing the README
-updates the site.
+week README, the papers and the notebook are not duplicated into the judge, so editing
+the README updates the site and there is no second copy to drift.
+
+**Everything is served locally.** The papers are already in the folder, so sending a
+reader to GitHub to read them was a pointless round trip. `judge/study.py` lists the
+week's `papers/` directory, titles each entry by parsing the generated index, and serves
+PDFs into an inline viewer; the Privacy Sandbox markdown explainers render as prose. The
+notebook is parsed and rendered cell by cell — markdown as prose, code in read-only
+blocks — so you can read the whole week before deciding to clone anything.
+
+Paper serving is traversal-proof by construction: the request is reduced to a basename,
+the extension must be in a two-entry allow-list, and the resolved path must still sit
+inside that week's `papers/` directory. The generated `papers/README.md` index is
+excluded so that listing and serving agree on what exists. The smoke test probes five
+escape attempts including the notebook and the solution file.
+
+## One page per tab
+
+Task, Data, Submit, Leaderboard and Study material are five URLs, not five anchors on one
+long scroll. `week_base.html` owns the shell — crumbs, header, stat strip, tab nav — and
+each tab is a small template filling one block, so a page is only as long as the thing
+you came for. Each ends with a Back/Next pager, because the tabs have a natural order:
+read the task, get the data, submit, check the board, go read the papers.
 
 ## The interface
 

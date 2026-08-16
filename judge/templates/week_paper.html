@@ -1,0 +1,29 @@
+{% extends "week_base.html" %}
+{% set page_title = paper.title %}
+{% block week_content %}
+<section class="panel">
+  <header>
+    <div>
+      <nav class="crumbs" style="padding:0 0 8px">
+        <a href="/week/{{ comp.week }}/study">← all reading</a>
+      </nav>
+      <h2>{{ paper.title }}</h2>
+      <p class="muted small mono">{{ paper.file }}{% if paper.size %} · {{ paper.size }}{% endif %}</p>
+    </div>
+    <a class="btn small ghost" href="/week/{{ comp.week }}/paper/{{ paper.file }}"
+       target="_blank" rel="noopener">Open in a new tab</a>
+  </header>
+
+  {% if md_body is not none %}
+    <div class="prose">{{ md_body | markdown }}</div>
+  {% else %}
+    <div class="pdf-frame">
+      <object data="/week/{{ comp.week }}/paper/{{ paper.file }}"
+              type="application/pdf" width="100%" height="100%">
+        <p class="muted">Your browser will not display PDFs inline.
+          <a href="/week/{{ comp.week }}/paper/{{ paper.file }}">Open it directly</a>.</p>
+      </object>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

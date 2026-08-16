@@ -1,0 +1,68 @@
+{% extends "week_base.html" %}
+{% set page_title = "Data — " + comp.title %}
+{% block week_content %}
+<section class="panel">
+  <header>
+    <div>
+      <h2>Files</h2>
+      <p class="muted small">Time-ordered split. Train is strictly earlier than test —
+        no shuffling, no overlap.</p>
+    </div>
+  </header>
+
+  {% if comp.is_prepared %}
+  <div class="filelist">
+    <div class="file">
+      <span class="ficon">CSV</span>
+      <div class="fbody">
+        <div class="fname">train.csv.gz</div>
+        <div class="fdesc">Earlier part of the window, <strong>with</strong> the
+          <code>{{ comp.target_column }}</code> column.</div>
+      </div>
+      <span class="fmeta">{{ facts.train_size }}</span>
+      <a class="btn small" href="/week/{{ comp.week }}/download/train">Download</a>
+    </div>
+    <div class="file">
+      <span class="ficon">CSV</span>
+      <div class="fbody">
+        <div class="fname">test.csv.gz</div>
+        <div class="fdesc">Later part of the window, labels removed. Predict for every row.</div>
+      </div>
+      <span class="fmeta">{{ facts.test_size }}</span>
+      <a class="btn small" href="/week/{{ comp.week }}/download/test">Download</a>
+    </div>
+    <div class="file">
+      <span class="ficon">CSV</span>
+      <div class="fbody">
+        <div class="fname">sample_submission.csv.gz</div>
+        <div class="fdesc">The exact format the scorer expects, filled with the training base rate.</div>
+      </div>
+      <span class="fmeta">{{ facts.sample_size }}</span>
+      <a class="btn small ghost" href="/week/{{ comp.week }}/download/sample">Download</a>
+    </div>
+  </div>
+  {% else %}
+  <p class="chip warn">Data has not been prepared on this server.</p>
+  <p class="muted small">Run <code>python -m judge.prepare_data --week {{ comp.week }}</code>.</p>
+  {% endif %}
+</section>
+
+<section class="panel">
+  <header><div><h2>What was removed, and why</h2></div></header>
+  <div class="prose">
+    <p>Columns that would leak the answer are stripped from the test file — not just
+      <code>{{ comp.target_column }}</code> but <code>conversion_timestamp</code>,
+      <code>conversion_id</code> and <code>attribution</code>. That last one is the subtle
+      one: it is Criteo's own last-click flag and is nonzero only on converting journeys,
+      so shipping it would hand over the label under a different name.</p>
+    <p>The split boundary is a timestamp quantile, taken <em>before</em> subsampling.
+      Subsampling first and splitting second would let a test row predate a train row,
+      which is the whole failure this competition exists to avoid teaching.</p>
+  </div>
+</section>
+
+<nav class="pager">
+  <a class="pager-prev" href="/week/{{ comp.week }}"><span class="pk">Back</span><span class="pt">Task</span></a>
+  <a class="pager-next" href="/week/{{ comp.week }}/submit"><span class="pk">Next</span><span class="pt">Submit predictions</span></a>
+</nav>
+{% endblock %}

@@ -368,9 +368,10 @@ a.card:hover h3 { color: var(--wk); }
 .subnav {
   position: sticky; top: 0; z-index: 20; display: flex; gap: 2px; flex-wrap: wrap;
   padding: 8px 0; margin-bottom: 4px;
-  background: color-mix(in oklab, var(--bg) 88%, transparent);
+  background: color-mix(in oklab, var(--bg) 86%, transparent);
   backdrop-filter: saturate(1.6) blur(10px);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 80%, transparent);
+  margin-bottom: 6px;
 }
 .subnav a {
   font-size: .85rem; padding: 6px 12px; border-radius: 7px; color: var(--ink-2);
@@ -401,8 +402,78 @@ a.card:hover h3 { color: var(--wk); }
 }
 .panel > header p { margin: 4px 0 0; }
 
+.subnav a.active {
+  color: var(--ink); font-weight: 560;
+  background: color-mix(in oklab, var(--wk) 13%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--wk) 26%, transparent);
+}
+
+/* ============================================================ pager */
+.pager { display: flex; gap: 12px; margin-top: 24px; }
+.pager a {
+  flex: 1; display: flex; flex-direction: column; gap: 2px;
+  padding: 15px 20px; border-radius: var(--radius); color: inherit;
+  background: var(--surface-1); box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow .15s ease, transform .15s ease;
+}
+.pager a:hover {
+  text-decoration: none; transform: translateY(-1px);
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--wk) 40%, transparent), var(--shadow-1);
+}
+.pager a:hover .pt { color: var(--wk); }
+.pager .pk {
+  font-family: var(--mono); font-size: .68rem; text-transform: uppercase;
+  letter-spacing: .12em; color: var(--ink-3);
+}
+.pager .pt { font-weight: 560; font-size: .95rem; }
+.pager .pager-next { text-align: right; }
+.pager .pager-prev + .pager-next { flex: 1; }
+
+/* ============================================================ notebook */
+.nb { display: flex; flex-direction: column; gap: 2px; }
+.nb-md { padding: 14px 0 6px; max-width: 74ch; }
+.nb-md > :first-child { margin-top: 0; }
+.nb-code { position: relative; margin: 6px 0 14px; }
+.nb-code pre {
+  margin: 0; padding: 15px 16px 15px 18px; overflow-x: auto;
+  background: var(--surface-sunk); border-radius: var(--radius-sm);
+  border-left: 2px solid color-mix(in oklab, var(--wk) 45%, transparent);
+  font-size: .82rem; line-height: 1.6;
+}
+.nb-code pre code { background: none; border: 0; padding: 0; color: var(--ink); }
+.nb-tag {
+  position: absolute; top: 8px; right: 12px; font-family: var(--mono);
+  font-size: .62rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-3); pointer-events: none;
+}
+
+/* ============================================================ pdf viewer */
+.pdf-frame {
+  height: min(78vh, 900px); border-radius: var(--radius); overflow: hidden;
+  background: var(--surface-sunk);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.pdf-frame object { display: block; border: 0; }
+.pdf-frame p { padding: 24px; }
+
 /* ============================================================ prose */
 .prose { max-width: 72ch; color: var(--ink-2); }
+/* Headings inside embedded content (a week README, a notebook cell) are nested one
+   level below the page's own h2, so they must not inherit the page-title scale. */
+.prose h1 { font-size: 1.3rem; font-weight: 640; color: var(--ink); margin: 0 0 .5em; }
+.prose h2 {
+  font-size: 1.02rem; font-weight: 620; color: var(--ink); margin: 1.7em 0 .5em;
+  padding-bottom: .35em;
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 70%, transparent);
+}
+.prose blockquote {
+  margin: 1em 0; padding: 2px 0 2px 16px;
+  border-left: 2px solid color-mix(in oklab, var(--wk) 45%, transparent);
+}
+.prose blockquote p { margin: .3em 0; }
+.prose ol, .prose ul { padding-left: 1.3em; }
+.prose li { margin: .3em 0; }
+.prose hr { border: 0; border-top: 1px solid var(--line); margin: 1.8em 0; }
 .prose h3 {
   color: var(--ink); margin: 1.9em 0 .5em; font-size: .8rem; text-transform: uppercase;
   letter-spacing: .1em; font-family: var(--mono); font-weight: 600;
@@ -628,7 +699,8 @@ input:focus-visible {
 .papers .st { flex: none; font-size: .7rem; }
 .papers .st.ok { color: var(--wk); }
 .papers .st.missing { color: var(--ink-3); }
-.papers .pt { flex: 1; color: var(--ink); }
+.papers .pt { flex: 1; color: var(--ink); min-width: 0; }
+a.pt:hover { color: var(--wk); }
 .papers .pf { font-family: var(--mono); font-size: .74rem; color: var(--ink-3); }
 
 details.disclosure { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 14px; }

@@ -1,0 +1,19 @@
+{% extends "week_base.html" %}
+{% set page_title = "Leaderboard — " + comp.title %}
+{% block week_content %}
+<section class="panel">
+  <header>
+    <div>
+      <h2>Public leaderboard</h2>
+      <p class="muted small">{{ '%.0f' % (comp.public_frac * 100) }}% of test rows. The
+        rest are held back and scored privately.</p>
+    </div>
+  </header>
+  {% include "_board.html" %}
+</section>
+
+<nav class="pager">
+  <a class="pager-prev" href="/week/{{ comp.week }}/submit"><span class="pk">Back</span><span class="pt">Submit</span></a>
+  <a class="pager-next" href="/week/{{ comp.week }}/study"><span class="pk">Next</span><span class="pt">Study material</span></a>
+</nav>
+{% endblock %}

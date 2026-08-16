@@ -1,0 +1,76 @@
+{% extends "week_base.html" %}
+{% set page_title = "Study material — " + comp.title %}
+{% block week_content %}
+
+{% if not study %}
+<section class="panel"><p class="muted">No week folder found on this server.</p></section>
+{% else %}
+
+<section class="panel">
+  <header>
+    <div>
+      <h2>Reading</h2>
+      <p class="muted small">{{ study.n_papers }} paper{{ '' if study.n_papers == 1 else 's' }},
+        served from this site — no round trip to a repo to read them.</p>
+    </div>
+  </header>
+
+  <ul class="papers">
+    {% for p in study.papers %}
+    <li>
+      {% if p.get('missing') %}
+        <span class="st missing" title="not downloaded">○</span>
+        <span class="pt">{{ p.title }}</span>
+        <span class="chip">missing</span>
+      {% else %}
+        <span class="st ok">●</span>
+        <a class="pt" href="/week/{{ comp.week }}/study/paper/{{ p.file }}">{{ p.title }}</a>
+        {% if p.role == 'spine' %}<span class="chip accent">spine</span>{% endif %}
+        <span class="pf">{{ p.kind }} · {{ p.size }}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="panel">
+  <header>
+    <div>
+      <h2>Week notes</h2>
+      <p class="muted small">Rendered from <code>{{ study.folder }}/README.md</code> —
+        one source of truth, so the notes and this page cannot drift apart.</p>
+    </div>
+  </header>
+  <div class="prose">{{ study.readme | markdown }}</div>
+</section>
+
+{% if study.notebook and study.notebook.cells %}
+<section class="panel">
+  <header>
+    <div>
+      <h2>Notebook</h2>
+      <p class="muted small"><code>{{ study.folder }}/{{ study.notebook.name }}</code> —
+        {{ study.notebook.cells|length }} cells, {{ study.notebook.n_code }} of them code.
+        Scaffolded, with the modelling left to do. Clone the repo and run
+        <code>make lab</code> to execute it.</p>
+    </div>
+  </header>
+
+  <div class="nb">
+    {% for c in study.notebook.cells %}
+      {% if c.type == 'markdown' %}
+        <div class="nb-md prose">{{ c.source | markdown }}</div>
+      {% else %}
+        <div class="nb-code"><span class="nb-tag">code</span><pre><code>{{ c.source }}</code></pre></div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% endif %}
+
+<nav class="pager">
+  <a class="pager-prev" href="/week/{{ comp.week }}/leaderboard"><span class="pk">Back</span><span class="pt">Leaderboard</span></a>
+</nav>
+{% endblock %}
