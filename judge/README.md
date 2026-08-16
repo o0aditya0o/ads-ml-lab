@@ -40,6 +40,24 @@ applied before first paint, so a light-mode user never sees a dark flash.
 Numbers are the content of this product, so every figure is set in a tabular-numeral mono
 face and columns of digits align by construction.
 
+**One container level, never two.** Nested boxes were what made the first version read
+like a stack of crates: a bordered panel holding bordered rows holding bordered tiles.
+Now a section is either a panel or open prose, and everything inside it is separated by
+hairlines and whitespace instead of its own border. The task section has no container at
+all — a heading and air is enough for something you only read.
+
+**Each week has a mark and an accent.** `judge/icons.py` holds twelve line-art SVGs, each
+drawing the *idea* of its week rather than a generic glyph: week 3 is a reliability
+diagram, week 7 is two diverging arms with the gap marked, week 9 is a damped oscillation
+settling onto a target. All are 24x24, stroke-only, 1.5px, `currentColor`, so they inherit
+whatever colour the context sets. Alongside each is an accent hue, exposed to templates as
+`--wk` and used for the mark, the section rules, tints and hover states — so a week page
+is quietly tinted its own colour throughout without ever depending on colour to carry
+meaning.
+
+That accent is chrome, not data. The chart keeps the validated dataviz palette regardless
+of which week you are on.
+
 **The leaderboard carries a chart**, and it is not decoration: every entry is plotted by
 how well it *ranks* (AUC) against how well it is *priced* (calibration ratio), with a
 dashed reference at 1.0. The two axes are independent, so an entry can sit far right and

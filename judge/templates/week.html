@@ -1,16 +1,22 @@
 {% extends "base.html" %}
 {% block title %}{{ comp.title }} — ads-ml-lab judge{% endblock %}
 {% block content %}
+<div style="--wk: {{ week_accent(comp.week) }}">
 
 <nav class="crumbs"><a href="/">all weeks</a> <span class="dim">/</span> Week {{ '%02d' % comp.week }}</nav>
 
 <header class="comp-head">
-  <div class="title-row">
-    <h1>{{ comp.title.split('—')[1].strip() }}</h1>
-    {% if comp.is_prepared %}<span class="chip live"><span class="dot"></span>open</span>{% endif %}
-    <span class="chip accent">ranked on {{ comp.primary_metric.label }}</span>
+  <div class="head-row">
+    <span class="mark-badge lg">{{ week_icon(comp.week, 30) }}</span>
+    <div class="head-body">
+      <div class="title-row">
+        <h1>{{ comp.title.split('—')[1].strip() }}</h1>
+        {% if comp.is_prepared %}<span class="chip live"><span class="dot"></span>open</span>{% endif %}
+        <span class="chip accent">ranked on {{ comp.primary_metric.label }}</span>
+      </div>
+      <p class="lede">{{ comp.tagline }}</p>
+    </div>
   </div>
-  <p class="lede">{{ comp.tagline }}</p>
 
   <div class="statstrip">
     <div class="stat"><span class="v">{{ facts.train_rows }}</span><span class="k">train rows</span></div>
@@ -29,7 +35,7 @@
   <a href="#study">Study material</a>
 </nav>
 
-<section id="task" class="panel">
+<section id="task" class="panel open">
   <div class="prose">{{ comp.task | markdown }}</div>
 </section>
 
@@ -238,4 +244,5 @@
 })();
 </script>
 
+</div>
 {% endblock %}

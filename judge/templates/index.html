@@ -32,8 +32,9 @@
 <ul class="weeks">
   {% for week, comp in competitions.items() %}
   <li>
-    <a class="card feature" href="/week/{{ week }}">
+    <a class="card feature" href="/week/{{ week }}" style="--wk: {{ week_accent(week) }}">
       <div class="card-top">
+        <span class="mark-badge">{{ week_icon(week, 22) }}</span>
         <span class="eyebrow">Week {{ '%02d' % week }}</span>
         {% if comp.is_prepared %}
           <span class="chip live"><span class="dot"></span>open</span>
@@ -65,8 +66,9 @@
 
 <ul class="weeks grid">
   {% for week, title in upcoming.items() %}
-  <li class="card locked">
+  <li class="card locked" style="--wk: {{ week_accent(week) }}">
     <div class="card-top">
+      <span class="mark-badge">{{ week_icon(week, 20) }}</span>
       <span class="eyebrow">Week {{ '%02d' % week }}</span>
       <span class="chip">locked</span>
     </div>

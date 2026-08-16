@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 # Plot geometry
 W, H = 760, 340
-PAD_L, PAD_R, PAD_T, PAD_B = 64, 132, 28, 52
+PAD_L, PAD_R, PAD_T, PAD_B = 64, 132, 34, 52
 
 
 @dataclass

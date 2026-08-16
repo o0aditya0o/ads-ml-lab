@@ -17,6 +17,7 @@ from fastapi import FastAPI, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from sqlalchemy import func
 from sqlmodel import Session, select
 from starlette.middleware.sessions import SessionMiddleware
@@ -26,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from judge import security as sec                                    # noqa: E402
 from judge.charts import calibration_scatter, score_bar_width        # noqa: E402
 from judge.competitions import COMPETITIONS, UPCOMING, get           # noqa: E402
+from judge.icons import accent, week_icon                            # noqa: E402
 from judge.models import Submission, User, engine, init_db, utcnow   # noqa: E402
 from judge.scoring import Rejected, score_submission                 # noqa: E402
 
@@ -64,6 +66,8 @@ def _fromjson(s: str) -> dict:
 
 templates.env.filters["markdown"] = _markdown
 templates.env.filters["fromjson"] = _fromjson
+templates.env.globals["week_icon"] = lambda w, size=24: Markup(week_icon(w, size))
+templates.env.globals["week_accent"] = accent
 
 if sec.is_production() and not os.environ.get("JUDGE_SECRET_KEY"):
     raise RuntimeError(
