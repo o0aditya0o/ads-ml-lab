@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ads-ml-lab judge{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">ads-ml-lab <span>judge</span></a>
+  <nav>
+    <a href="https://github.com/o0aditya0o/ads-ml-lab" target="_blank" rel="noopener">repo</a>
+    {% if user %}
+      <span class="who">{{ user.display_name }}</span>
+      <form method="post" action="/logout" class="inline">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="linkish" type="submit">sign out</button>
+      </form>
+    {% else %}
+      <a href="/login">sign in</a>
+      <a class="btn small" href="/signup">sign up</a>
+    {% endif %}
+  </nav>
+</header>
+
+{% if flash %}
+  <div class="flash {{ flash.kind }}">{{ flash.message }}</div>
+{% endif %}
+
+<main>{% block content %}{% endblock %}</main>
+
+<footer>
+  <p>Twelve weeks of ads measurement ML, built from scratch on public Criteo data.
+     Ranked on normalised entropy, because AUC cannot see calibration.</p>
+</footer>
+</body>
+</html>

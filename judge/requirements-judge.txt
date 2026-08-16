@@ -1,0 +1,19 @@
+# Serving dependencies only. Kept separate from the repo's requirements.txt so the
+# container does not pull torch and tensorflow to run a web app.
+fastapi==0.141.1
+uvicorn[standard]==0.42.0
+jinja2==3.1.6
+python-multipart==0.0.20
+itsdangerous==2.2.0
+sqlmodel==0.0.39
+argon2-cffi==25.1.0
+email-validator==2.4.0
+markdown==3.10
+bleach==6.3.0
+
+# needed by adslab.metrics / adslab.encoders, which the scorer calls
+numpy==1.26.4
+pandas==2.3.3
+pyarrow==23.0.0
+scipy==1.15.3
+scikit-learn==1.7.2

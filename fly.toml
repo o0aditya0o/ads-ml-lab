@@ -1,0 +1,37 @@
+# fly deploy target for the judge.
+#
+#   fly volumes create judge_data --size 3
+#   fly secrets set JUDGE_SECRET_KEY=$(python -c "import secrets;print(secrets.token_urlsafe(48))")
+#   fly deploy
+#
+# Then upload the prepared competition files to the volume — see judge/README.md.
+app = "ads-ml-lab-judge"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  JUDGE_ENV = "production"
+  JUDGE_DB = "/app/judge/data/judge.db"
+
+[mounts]
+  source = "judge_data"
+  destination = "/app/judge/data"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 40
+
+# Scoring a 400k-row submission needs headroom; 512 MB is not enough.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"

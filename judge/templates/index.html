@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="hero">
+  <h1>Twelve weeks of ads measurement, as competitions</h1>
+  <p>Each week is a problem from real ads ML — conversion modelling, calibration, delayed
+     feedback, attribution, incrementality, bidding, privacy. Download the data, build a
+     model, submit predictions, and see where you land.</p>
+  <p class="hero-note">Leaderboards rank on <strong>normalised entropy</strong>, not AUC.
+     A model that ranks perfectly and is calibrated three times too high will win on AUC
+     and lose money in an auction; NE sees both.</p>
+</section>
+
+<section>
+  <h2>Open</h2>
+  <ul class="weeks">
+    {% for week, comp in competitions.items() %}
+    <li class="week open">
+      <a href="/week/{{ week }}">
+        <div class="week-head">
+          <span class="wk">Week {{ '%02d' % week }}</span>
+          <h3>{{ comp.title.split('—')[1].strip() }}</h3>
+          <span class="pill {{ 'live' if comp.is_prepared else 'pending' }}">
+            {{ 'open' if comp.is_prepared else 'data not prepared' }}</span>
+        </div>
+        <p>{{ comp.tagline }}</p>
+        <div class="stats">
+          <span><strong>{{ entrants.get(week, 0) }}</strong> entrant{{ '' if entrants.get(week,0) == 1 else 's' }}</span>
+          <span><strong>{{ counts.get(week, 0) }}</strong> submission{{ '' if counts.get(week,0) == 1 else 's' }}</span>
+          <span>ranked on <strong>{{ comp.primary_metric.label }}</strong></span>
+        </div>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section>
+  <h2>Coming</h2>
+  <p class="muted">These weeks exist in the repo with notebooks and reading. They become
+     competitions once their data and scoring are defined.</p>
+  <ul class="weeks locked">
+    {% for week, title in upcoming.items() %}
+    <li class="week">
+      <div class="week-head">
+        <span class="wk">Week {{ '%02d' % week }}</span>
+        <h3>{{ title }}</h3>
+        <span class="pill">locked</span>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% endblock %}

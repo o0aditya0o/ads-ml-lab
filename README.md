@@ -25,6 +25,26 @@ make lab       # JupyterLab
 leak-free, and prints the row counts, base rates, cardinalities and delay distribution
 you need before modelling anything.
 
+## The judge
+
+A Kaggle-shaped competition server runs on top of the same data and the same metrics:
+
+```bash
+make judge-data    # build week 1's train/test/solution from data/raw
+make judge         # http://localhost:8000
+```
+
+Sign up, download the split, submit predictions, land on a leaderboard seeded with a
+base-rate and a logistic-regression baseline. **Ranked on normalised entropy, not AUC** —
+a model calibrated three times too high scores identically on AUC and would overbid every
+auction threefold, and NE is a proper scoring rule that sees both. AUC and calibration
+ratio sit alongside so the disagreement is visible. Public/private split is 30/70, Kaggle
+style, so afterwards you can tell whether you tuned a model or tuned the leaderboard.
+
+Week 1 is live; the other eleven are listed as locked. Scoring calls `adslab.metrics`
+directly, so the leaderboard and your notebook cannot drift apart. Details, and the
+deployment guide, in [`judge/README.md`](judge/README.md).
+
 ## Layout
 
 ```
@@ -42,6 +62,7 @@ weekNN_*/        one folder per week
   figures/         saved plots
   README.md        the write-up: what I built / what the numbers say / what surprised me
 tools/           fetchers, notebook generator, setup verifier
+judge/           the competition server (FastAPI + SQLite); see judge/README.md
 tests/           contract tests for the harness
 results/         results.jsonl — every run, including the losing ones
 data/            gitignored; rebuild with `make data`

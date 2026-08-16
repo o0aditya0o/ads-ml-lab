@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block title %}Leaderboard — {{ comp.title }}{% endblock %}
+{% block content %}
+<nav class="crumbs"><a href="/">all weeks</a> / <a href="/week/{{ comp.week }}">Week {{ '%02d' % comp.week }}</a> / <span>leaderboard</span></nav>
+<h1>{{ comp.title }} — leaderboard</h1>
+<section class="panel">{% include "_board.html" %}</section>
+{% endblock %}

@@ -1,0 +1,12 @@
+data/
+judge/data/
+**/papers/*.pdf
+**/*.ipynb
+**/figures/
+.git/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.pyc
+week0[2-9]_*/
+week1[0-2]_*/

@@ -27,3 +27,8 @@ venv/
 
 # macOS
 .DS_Store
+
+# Judge: competition artifacts and the live database.
+# solution.parquet holds the hidden labels — committing it to a public repo would
+# publish the answers. Nothing under judge/data/ is ever committed.
+judge/data/

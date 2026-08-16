@@ -1,0 +1,37 @@
+{% if board %}
+<table class="grid board">
+  <thead>
+    <tr>
+      <th>#</th><th>entrant</th><th>model</th>
+      <th title="{{ comp.primary_metric.blurb }}">{{ comp.primary_metric.label }} ▾</th>
+      {% for m in comp.secondary_metrics %}<th title="{{ m.blurb }}">{{ m.label }}</th>{% endfor %}
+      <th>entries</th><th>last</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for r in board %}
+    <tr class="{{ 'baseline' if r.is_baseline else '' }}{{ ' you' if user and r.name == user.display_name else '' }}">
+      <td class="mono rank">{{ r.rank }}</td>
+      <td>{{ r.name }}{% if r.is_baseline %} <span class="pill">baseline</span>{% endif %}</td>
+      <td class="muted">{{ r.label }}</td>
+      <td class="mono strong">{{ comp.primary_metric.fmt.format(r.score) }}</td>
+      {% for m in comp.secondary_metrics %}
+        <td class="mono">{{ m.fmt.format(r.metrics.get(m.key)) if r.metrics.get(m.key) is not none else '—' }}</td>
+      {% endfor %}
+      <td class="mono">{{ r.n_entries or '—' }}</td>
+      <td class="mono muted">{{ r.when.strftime('%d %b') }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="muted small">
+  Ranked on {{ comp.primary_metric.label }} —
+  {{ 'higher' if comp.primary_metric.higher_is_better else 'lower' }} is better.
+  {{ comp.primary_metric.blurb }}
+  The remaining {{ '%.0f' % ((1 - comp.public_frac) * 100) }}% of test rows are held
+  back and scored privately; that split is what tells you afterwards whether you tuned a
+  model or tuned the leaderboard.
+</p>
+{% else %}
+<p class="muted">No scored submissions yet.</p>
+{% endif %}

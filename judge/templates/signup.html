@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Sign up{% endblock %}
+{% block content %}
+<div class="narrow">
+  <h1>Sign up</h1>
+  <form method="post" action="/signup" class="stack">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label>Email <input type="email" name="email" required autocomplete="email"></label>
+    <label>Display name <span class="muted">(shown on leaderboards)</span>
+      <input type="text" name="display_name" required minlength="2" maxlength="31" autocomplete="nickname"></label>
+    <label>Password <span class="muted">(10 characters minimum)</span>
+      <input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+    <button class="btn" type="submit">Create account</button>
+  </form>
+  <p class="muted small">Your email is used only to sign in. There is no password reset
+     flow — this is a small deployment, so an admin resets it by hand.</p>
+</div>
+{% endblock %}
