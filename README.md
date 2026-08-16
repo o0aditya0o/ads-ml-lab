@@ -111,8 +111,10 @@ farm, and the Wayback mirror was returning 503. `week04_delayed_feedback/papers/
 explains how to get it and why you are not blocked without it.
 
 Papers are committed to the repo, ~56 MB, so a fresh clone is immediately readable
-offline. If this ever goes to a public GitHub remote, reconsider — they are author copies
-and preprints, and 56 MB of PDFs in git history is not free.
+offline. They are author copies and preprints from publicly accessible sources, each
+traceable to its origin URL in `tools/fetch_papers.py`, and they are **not** covered by
+this repo's MIT licence — see [`LICENSE`](LICENSE). Rights-holders who would rather not be
+mirrored here can open an issue; `make papers` will still fetch on demand.
 
 ## Progress
 
