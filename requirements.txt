@@ -1,0 +1,35 @@
+# The environment this repo was built and verified against: Homebrew python 3.10.19,
+# which already provided most of these. Pins are the versions actually tested, not
+# minimums -- newer almost certainly works.
+#
+#   make setup    installs the handful that were missing and registers the kernel
+
+# core
+numpy==1.26.4
+pandas==2.3.3
+polars==1.43.2
+pyarrow==23.0.0
+scipy==1.15.3
+scikit-learn==1.7.2
+
+# models
+torch==2.10.0            # MPS backend available on Apple Silicon
+lightgbm==4.6.0
+xgboost==3.2.0
+statsmodels
+
+# data access
+huggingface_hub==1.27.0
+datasets==5.0.1
+
+# plotting / notebooks
+matplotlib==3.10.8
+seaborn
+jupyterlab==4.5.1
+ipykernel==6.29.5
+nbformat==5.10.4
+nbstripout
+
+# dev
+pytest
+tabulate                 # registry.to_markdown()

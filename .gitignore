@@ -1,0 +1,29 @@
+# Datasets: 4.2 GB, all re-downloadable via tools/fetch_datasets.py
+data/raw/
+data/interim/
+data/processed/
+data/*.log
+
+# Papers ARE committed (see README) -- ~56 MB, deliberate.
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Notebook outputs are stripped before commit; see `make clean-nb`.
+# If you want them kept for a specific week, force-add that file.
+
+# Models / large artifacts
+*.pt
+*.pth
+*.ckpt
+*.joblib
+*.pkl
+
+# macOS
+.DS_Store
