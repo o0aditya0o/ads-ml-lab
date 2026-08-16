@@ -1,7 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Leaderboard — {{ comp.title }}{% endblock %}
 {% block content %}
-<nav class="crumbs"><a href="/">all weeks</a> / <a href="/week/{{ comp.week }}">Week {{ '%02d' % comp.week }}</a> / <span>leaderboard</span></nav>
-<h1>{{ comp.title }} — leaderboard</h1>
+<nav class="crumbs"><a href="/">all weeks</a> <span class="dim">/</span>
+  <a href="/week/{{ comp.week }}">Week {{ '%02d' % comp.week }}</a>
+  <span class="dim">/</span> leaderboard</nav>
+<header class="comp-head">
+  <div class="title-row">
+    <h1>{{ comp.title.split('—')[1].strip() }}</h1>
+    <span class="chip accent">ranked on {{ comp.primary_metric.label }}</span>
+  </div>
+</header>
 <section class="panel">{% include "_board.html" %}</section>
 {% endblock %}

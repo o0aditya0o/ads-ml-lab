@@ -19,6 +19,12 @@ import urllib.request
 from http.cookiejar import CookieJar
 
 BASE = "http://127.0.0.1:8000"
+
+# Unique per run so the suite is re-runnable against a live database instead of
+# demanding a wipe between runs.
+RUN = str(int(__import__("time").time()))[-6:]
+EMAIL = f"smoke{RUN}@example.com"
+NAME = f"smoke tester {RUN}"
 PASSED, FAILED = [], []
 
 _jar = CookieJar()
@@ -69,11 +75,15 @@ def main() -> int:
 
     print("=" * 70, "\npublic pages\n" + "=" * 70)
     st, body = req("/")
-    check("index renders", st == 200 and b"Twelve weeks" in body, f"status {st}")
+    check("index renders", st == 200 and b"actually gets wrong" in body, f"status {st}")
     check("index lists locked weeks", body.count(b"locked") >= 11)
     st, body = req("/week/1")
     check("week 1 page renders", st == 200 and b"CVR baseline" in body, f"status {st}")
     check("task text is rendered as HTML", b"<h3>" in body)
+    check("stat strip is populated", b"train rows" in body and b"base rate" in body)
+    check("calibration chart is rendered", b"svg class=\"chart\"" in body or b'class="chart"' in body)
+    check("score bars are rendered", b"score-fill" in body)
+    check("theme toggle present", b"theme-toggle" in body)
     check("study material appears", b"Study material" in body)
     check("leaderboard shows seeded baselines", b"base_rate" in body and b"logreg" in body)
 
@@ -108,20 +118,20 @@ def main() -> int:
     check("anonymous submit is redirected to login", st in (200, 303), f"status {st}")
 
     tok = csrf()
-    st, body = form("/signup", {"csrf": tok, "email": "smoke@example.com",
-                                "display_name": "smoke tester", "password": "short"})
+    st, body = form("/signup", {"csrf": tok, "email": EMAIL,
+                                "display_name": NAME, "password": "short"})
     check("short password rejected", b"at least" in body or st == 303)
 
-    st, _ = form("/signup", {"csrf": "wrong-token", "email": "x@example.com",
-                             "display_name": "x", "password": "correcthorse1"})
+    st, _ = form("/signup", {"csrf": "wrong-token", "email": f"x{RUN}@example.com",
+                             "display_name": f"x{RUN}", "password": "correcthorse1"})
     check("bad CSRF token rejected", st == 403, f"status {st}")
 
     tok = csrf()
-    st, _ = form("/signup", {"csrf": tok, "email": "smoke@example.com",
-                             "display_name": "smoke tester", "password": "correcthorse1"})
+    st, _ = form("/signup", {"csrf": tok, "email": EMAIL,
+                             "display_name": NAME, "password": "correcthorse1"})
     check("signup succeeds", st == 200, f"status {st}")
     st, body = req("/")
-    check("session is active", b"smoke tester" in body)
+    check("session is active", NAME.encode() in body)
 
     print("\n" + "=" * 70, "\nsubmission validation\n" + "=" * 70)
     tok = csrf()
@@ -186,11 +196,11 @@ def main() -> int:
         print(f"       scored NE = {m2.group(1).decode()}")
 
     st, body = req("/week/1")
-    check("entrant appears on leaderboard", b"smoke tester" in body)
+    check("entrant appears on leaderboard", NAME.encode() in body)
     check("baselines still ranked", b"baseline" in body)
 
     st, body = req("/week/1/leaderboard")
-    check("standalone leaderboard renders", st == 200 and b"smoke tester" in body)
+    check("standalone leaderboard renders", st == 200 and NAME.encode() in body)
 
     print("\n" + "=" * 70)
     print(f"{len(PASSED)} passed, {len(FAILED)} failed")

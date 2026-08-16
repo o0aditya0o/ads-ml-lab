@@ -1,36 +1,76 @@
 {% if board %}
-<table class="grid board">
+<div class="board-wrap">
+<table class="board">
   <thead>
     <tr>
-      <th>#</th><th>entrant</th><th>model</th>
-      <th title="{{ comp.primary_metric.blurb }}">{{ comp.primary_metric.label }} ▾</th>
-      {% for m in comp.secondary_metrics %}<th title="{{ m.blurb }}">{{ m.label }}</th>{% endfor %}
-      <th>entries</th><th>last</th>
+      <th style="width:34px"></th>
+      <th>entrant</th>
+      <th>model</th>
+      <th class="n" title="{{ comp.primary_metric.blurb }}">
+        {{ comp.primary_metric.label }} {{ '↑' if comp.primary_metric.higher_is_better else '↓' }}</th>
+      <th class="n">vs base</th>
+      {% for m in comp.secondary_metrics %}
+        <th class="n" title="{{ m.blurb }}">{{ m.label }}</th>
+      {% endfor %}
+      <th class="n">entries</th>
+      <th class="n">last</th>
     </tr>
   </thead>
   <tbody>
   {% for r in board %}
-    <tr class="{{ 'baseline' if r.is_baseline else '' }}{{ ' you' if user and r.name == user.display_name else '' }}">
-      <td class="mono rank">{{ r.rank }}</td>
-      <td>{{ r.name }}{% if r.is_baseline %} <span class="pill">baseline</span>{% endif %}</td>
-      <td class="muted">{{ r.label }}</td>
-      <td class="mono strong">{{ comp.primary_metric.fmt.format(r.score) }}</td>
+    <tr class="{{ 'is-baseline' if r.is_baseline }} {{ 'is-you' if user and r.name == user.display_name }}">
+      <td><span class="rank {{ 'r%d' % r.rank if r.rank <= 3 and not r.is_baseline else '' }}">{{ r.rank }}</span></td>
+      <td>
+        <div class="who-cell">
+          <span class="who-name">{{ r.name }}</span>
+          {% if r.is_baseline %}<span class="chip">baseline</span>{% endif %}
+        </div>
+      </td>
+      <td><span class="model-label" title="{{ r.label }}">{{ r.label }}</span></td>
+      <td class="n score-cell">
+        <span class="score-val">{{ comp.primary_metric.fmt.format(r.score) }}</span>
+        <span class="score-track"><span class="score-fill" style="width:{{ '%.1f' % r.bar }}%"></span></span>
+      </td>
+      <td class="n">
+        {% if r.vs_base is not none %}
+          <span class="delta {{ 'up' if r.vs_base > 0 else ('down' if r.vs_base < 0 else 'flat') }}">
+            {{ '%+.1f%%' % r.vs_base }}</span>
+        {% else %}<span class="dim">—</span>{% endif %}
+      </td>
       {% for m in comp.secondary_metrics %}
-        <td class="mono">{{ m.fmt.format(r.metrics.get(m.key)) if r.metrics.get(m.key) is not none else '—' }}</td>
+        <td class="n mono">{{ m.fmt.format(r.metrics.get(m.key)) if r.metrics.get(m.key) is not none else '—' }}</td>
       {% endfor %}
-      <td class="mono">{{ r.n_entries or '—' }}</td>
-      <td class="mono muted">{{ r.when.strftime('%d %b') }}</td>
+      <td class="n mono dim">{{ r.n_entries or '—' }}</td>
+      <td class="n mono dim">{{ r.when.strftime('%d %b') }}</td>
     </tr>
   {% endfor %}
   </tbody>
 </table>
-<p class="muted small">
-  Ranked on {{ comp.primary_metric.label }} —
+</div>
+
+{% if chart %}
+<figure class="chart-card">
+  <figcaption>
+    <h3>Where ranking and pricing disagree</h3>
+    <p class="cap">Every entry plotted by how well it <em>ranks</em> (AUC, right is better)
+       against how well it is <em>priced</em> (calibration ratio, 1.0 is unbiased). The two
+       axes are independent: a point can sit far right and far off the dashed line, which
+       is a model that orders impressions correctly and would still overbid every auction
+       it wins. That independence is why this board does not rank on AUC.</p>
+  </figcaption>
+  {{ chart | safe }}
+</figure>
+{% endif %}
+
+<p class="muted small" style="margin-top:16px">
+  Ranked on <strong>{{ comp.primary_metric.label }}</strong> —
   {{ 'higher' if comp.primary_metric.higher_is_better else 'lower' }} is better.
   {{ comp.primary_metric.blurb }}
-  The remaining {{ '%.0f' % ((1 - comp.public_frac) * 100) }}% of test rows are held
-  back and scored privately; that split is what tells you afterwards whether you tuned a
-  model or tuned the leaderboard.
+  <em>vs base</em> is the improvement over the base-rate predictor.
+  Bars show standing within this field, not distance from zero.
+  The other {{ '%.0f' % ((1 - comp.public_frac) * 100) }}% of test rows are held back and
+  scored privately — that split is what tells you afterwards whether you tuned a model or
+  tuned the leaderboard.
 </p>
 {% else %}
 <p class="muted">No scored submissions yet.</p>

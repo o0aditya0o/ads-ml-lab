@@ -2,91 +2,162 @@
 {% block title %}{{ comp.title }} — ads-ml-lab judge{% endblock %}
 {% block content %}
 
-<nav class="crumbs"><a href="/">all weeks</a> / <span>Week {{ '%02d' % comp.week }}</span></nav>
+<nav class="crumbs"><a href="/">all weeks</a> <span class="dim">/</span> Week {{ '%02d' % comp.week }}</nav>
 
 <header class="comp-head">
-  <h1>{{ comp.title }}</h1>
-  <p class="tagline">{{ comp.tagline }}</p>
+  <div class="title-row">
+    <h1>{{ comp.title.split('—')[1].strip() }}</h1>
+    {% if comp.is_prepared %}<span class="chip live"><span class="dot"></span>open</span>{% endif %}
+    <span class="chip accent">ranked on {{ comp.primary_metric.label }}</span>
+  </div>
+  <p class="lede">{{ comp.tagline }}</p>
+
+  <div class="statstrip">
+    <div class="stat"><span class="v">{{ facts.train_rows }}</span><span class="k">train rows</span></div>
+    <div class="stat"><span class="v">{{ facts.test_rows }}</span><span class="k">test rows</span></div>
+    <div class="stat"><span class="v">{{ facts.base_rate }}</span><span class="k">base rate</span></div>
+    <div class="stat"><span class="v">{{ facts.split }}</span><span class="k">split</span></div>
+    <div class="stat"><span class="v">{{ board|length }}</span><span class="k">on the board</span></div>
+  </div>
 </header>
 
-<div class="tabs">
-  <a href="#task" class="tab active">Task</a>
-  <a href="#data" class="tab">Data</a>
-  <a href="#submit" class="tab">Submit</a>
-  <a href="#leaderboard" class="tab">Leaderboard</a>
-  <a href="#study" class="tab">Study material</a>
-</div>
+<nav class="subnav">
+  <a href="#task">Task</a>
+  <a href="#data">Data</a>
+  <a href="#submit">Submit</a>
+  <a href="#leaderboard">Leaderboard</a>
+  <a href="#study">Study material</a>
+</nav>
 
 <section id="task" class="panel">
   <div class="prose">{{ comp.task | markdown }}</div>
 </section>
 
 <section id="data" class="panel">
-  <h2>Data</h2>
+  <header>
+    <div>
+      <h2>Data</h2>
+      <p class="muted small">Time-ordered split. Train is strictly earlier than test —
+        no shuffling, no overlap.</p>
+    </div>
+  </header>
+
   {% if comp.is_prepared %}
-  <table class="files">
-    <tr>
-      <td><a class="btn" href="/week/{{ comp.week }}/download/train">train.csv.gz</a></td>
-      <td>Earlier part of the window, <strong>with</strong> the <code>{{ comp.target_column }}</code> column.</td>
-    </tr>
-    <tr>
-      <td><a class="btn" href="/week/{{ comp.week }}/download/test">test.csv.gz</a></td>
-      <td>Later part of the window, labels removed. Predict for every row.</td>
-    </tr>
-    <tr>
-      <td><a class="btn ghost" href="/week/{{ comp.week }}/download/sample">sample_submission.csv.gz</a></td>
-      <td>The exact format the scorer expects, filled with the training base rate.</td>
-    </tr>
-  </table>
-  <p class="muted">Columns that would leak the answer are stripped from the test file —
-     not just <code>{{ comp.target_column }}</code> but <code>conversion_timestamp</code>,
-     <code>conversion_id</code> and <code>attribution</code>, the last of which is
-     Criteo's own last-click flag and is nonzero only on converting journeys.</p>
+  <div class="filelist">
+    <div class="file">
+      <span class="ficon">CSV</span>
+      <div class="fbody">
+        <div class="fname">train.csv.gz</div>
+        <div class="fdesc">Earlier part of the window, <strong>with</strong> the
+          <code>{{ comp.target_column }}</code> column.</div>
+      </div>
+      <span class="fmeta">{{ facts.train_size }}</span>
+      <a class="btn small" href="/week/{{ comp.week }}/download/train">Download</a>
+    </div>
+    <div class="file">
+      <span class="ficon">CSV</span>
+      <div class="fbody">
+        <div class="fname">test.csv.gz</div>
+        <div class="fdesc">Later part of the window, labels removed. Predict for every row.</div>
+      </div>
+      <span class="fmeta">{{ facts.test_size }}</span>
+      <a class="btn small" href="/week/{{ comp.week }}/download/test">Download</a>
+    </div>
+    <div class="file">
+      <span class="ficon">CSV</span>
+      <div class="fbody">
+        <div class="fname">sample_submission.csv.gz</div>
+        <div class="fdesc">The exact format the scorer expects, filled with the training base rate.</div>
+      </div>
+      <span class="fmeta">{{ facts.sample_size }}</span>
+      <a class="btn small ghost" href="/week/{{ comp.week }}/download/sample">Download</a>
+    </div>
+  </div>
+  <p class="muted small" style="margin-top:16px">
+    Columns that would leak the answer are stripped from the test file — not just
+    <code>{{ comp.target_column }}</code> but <code>conversion_timestamp</code>,
+    <code>conversion_id</code> and <code>attribution</code>, the last of which is Criteo's
+    own last-click flag and is nonzero only on converting journeys.
+  </p>
   {% else %}
-  <p class="warn">Data has not been prepared on this server yet. Run
-     <code>python -m judge.prepare_data --week {{ comp.week }}</code>.</p>
+  <p class="chip warn">Data has not been prepared on this server.</p>
+  <p class="muted small">Run <code>python -m judge.prepare_data --week {{ comp.week }}</code>.</p>
   {% endif %}
 </section>
 
 <section id="submit" class="panel">
-  <h2>Submit</h2>
+  <header>
+    <div><h2>Submit</h2></div>
+    {% if user %}
+    <div class="quota">
+      <span>{{ used_today }}/{{ comp.max_daily_submissions }} today</span>
+      <span class="quota-track"><span class="quota-fill"
+        style="width:{{ (100 * used_today / comp.max_daily_submissions)|round(1) }}%"></span></span>
+    </div>
+    {% endif %}
+  </header>
+
   {% if user %}
-    <form method="post" action="/week/{{ comp.week }}/submit" enctype="multipart/form-data" class="submit-form">
+    <form method="post" action="/week/{{ comp.week }}/submit" enctype="multipart/form-data"
+          class="submit-form stack" id="subform">
       <input type="hidden" name="csrf" value="{{ csrf }}">
-      <label>Predictions (CSV or .csv.gz)
-        <input type="file" name="file" accept=".csv,.gz" required>
+
+      <label class="dropzone" id="dz">
+        <input type="file" name="file" accept=".csv,.gz" required id="dzinput">
+        <div class="dz-icon">↑</div>
+        <div class="dz-main" id="dzmain">Drop your predictions here, or click to choose</div>
+        <div class="dz-sub" id="dzsub">.csv or .csv.gz · up to {{ (comp.max_upload_mb) }} MB</div>
       </label>
-      <label>What is this model? <span class="muted">(shown on the leaderboard)</span>
-        <input type="text" name="label" maxlength="60" placeholder="lightgbm, 63 leaves, hashed cats">
+
+      <label>Model name <span class="hint">shown on the leaderboard</span>
+        <input type="text" name="label" maxlength="60"
+               placeholder="lightgbm · 63 leaves · hashed cats">
       </label>
-      <button class="btn" type="submit">Score it</button>
-      <p class="muted">Up to {{ comp.max_daily_submissions }} per 24 hours. The limit is
-         deliberate: tune on your own validation split, not on the leaderboard.</p>
+
+      <ul class="format-checks">
+        <li><span class="tickmark">✓</span> Header row required:
+            <code>{{ comp.id_column }},prediction</code></li>
+        <li><span class="tickmark">✓</span> One row per test impression — every id, no extras</li>
+        <li><span class="tickmark">✓</span> Predictions in <code>[0, 1]</code>; apply a sigmoid to logits</li>
+        <li><span class="tickmark">✓</span> Order does not matter, the scorer joins on id</li>
+      </ul>
+
+      <div><button class="btn" type="submit">Score it</button></div>
+      <p class="muted small" style="margin:0">
+        {{ comp.max_daily_submissions }} scored submissions per 24 hours. Rejected files
+        do not count — the cap exists to stop leaderboard overfitting, not to punish you
+        for a bad header. Tune on your own validation split.
+      </p>
     </form>
   {% else %}
-    <p><a class="btn" href="/signup">Sign up</a> or <a href="/login?next=/week/{{ comp.week }}">sign in</a> to submit.</p>
+    <div class="signin-prompt">
+      <p>Sign up to download nothing extra and submit predictions — accounts exist only to
+         attribute leaderboard rows.</p>
+      <a class="btn" href="/signup">Sign up</a>
+      <a class="btn ghost" href="/login?next=/week/{{ comp.week }}">Sign in</a>
+    </div>
   {% endif %}
 
   {% if mine %}
-  <h3>Your submissions</h3>
-  <table class="grid">
-    <thead><tr><th>when</th><th>label</th><th>status</th>
-      <th>{{ comp.primary_metric.label }}</th><th>AUC</th><th>calib.</th></tr></thead>
+  <h3 style="margin-top:26px">Your submissions</h3>
+  <table class="hist">
+    <thead><tr>
+      <th>when</th><th>model</th><th></th>
+      <th class="n">{{ comp.primary_metric.label }}</th><th class="n">AUC</th><th class="n">calib.</th>
+    </tr></thead>
     <tbody>
     {% for s in mine %}
-      <tr class="{{ 'bad' if s.status == 'rejected' else '' }}">
-        <td class="mono">{{ s.created_at.strftime('%d %b %H:%M') }}</td>
+      <tr class="{{ 'rejected' if s.status == 'rejected' }}">
+        <td class="mono dim">{{ s.created_at.strftime('%d %b %H:%M') }}</td>
         <td>{{ s.label or '—' }}</td>
-        <td>
-          {% if s.status == 'rejected' %}<span class="pill bad" title="{{ s.error }}">rejected</span>
-          {% else %}<span class="pill live">scored</span>{% endif %}
-        </td>
-        <td class="mono">{{ comp.primary_metric.fmt.format(s.public_score) if s.public_score is not none else '—' }}</td>
-        <td class="mono">{{ '%.5f' % (s.metrics_json | fromjson).get('auc') if s.public_score is not none else '—' }}</td>
-        <td class="mono">{{ '%.4f' % (s.metrics_json | fromjson).get('calibration_ratio') if s.public_score is not none else '—' }}</td>
+        <td>{% if s.status == 'rejected' %}<span class="chip bad">rejected</span>
+            {% else %}<span class="chip live">scored</span>{% endif %}</td>
+        <td class="n mono">{{ comp.primary_metric.fmt.format(s.public_score) if s.public_score is not none else '—' }}</td>
+        <td class="n mono">{{ '%.5f' % (s.metrics_json | fromjson).get('auc') if s.public_score is not none else '—' }}</td>
+        <td class="n mono">{{ '%.4f' % (s.metrics_json | fromjson).get('calibration_ratio') if s.public_score is not none else '—' }}</td>
       </tr>
       {% if s.status == 'rejected' %}
-      <tr class="errrow"><td colspan="6">{{ s.error }}</td></tr>
+      <tr><td class="errmsg" colspan="6">{{ s.error }}</td></tr>
       {% endif %}
     {% endfor %}
     </tbody>
@@ -95,39 +166,76 @@
 </section>
 
 <section id="leaderboard" class="panel">
-  <h2>Leaderboard <span class="muted">— public split ({{ '%.0f' % (comp.public_frac * 100) }}% of test rows)</span></h2>
+  <header>
+    <div>
+      <h2>Leaderboard</h2>
+      <p class="muted small">Public split — {{ '%.0f' % (comp.public_frac * 100) }}% of test rows.</p>
+    </div>
+  </header>
   {% include "_board.html" %}
 </section>
 
 <section id="study" class="panel">
-  <h2>Study material</h2>
-  {% if study %}
-  <p class="muted">Rendered straight from
-     <a href="{{ study.github }}" target="_blank" rel="noopener"><code>{{ study.folder }}/</code></a>
-     in the repo — one source of truth, so the notes and the site never drift apart.</p>
+  <header>
+    <div>
+      <h2>Study material</h2>
+      {% if study %}
+      <p class="muted small">Read straight from
+        <a href="{{ study.github }}" target="_blank" rel="noopener"><code>{{ study.folder }}/</code></a>
+        in the repo — one source of truth, so the notes and this page never drift apart.</p>
+      {% endif %}
+    </div>
+  </header>
 
+  {% if study %}
   <h3>Reading</h3>
   <ul class="papers">
     {% for p in study.papers %}
     <li>
-      <span class="{{ 'ok' if p.available else 'missing' }}">{{ '●' if p.available else '○' }}</span>
-      {{ p.title }}
-      <code>{{ p.file }}</code>
+      <span class="st {{ 'ok' if p.available else 'missing' }}">{{ '●' if p.available else '○' }}</span>
+      <span class="pt">{{ p.title }}</span>
+      <span class="pf">{{ p.file }}</span>
     </li>
     {% endfor %}
   </ul>
 
-  <h3>Notebook</h3>
-  <p><code>{{ study.folder }}/{{ study.notebook }}</code> — scaffolded, with the modelling
-     left to do. Clone the repo and run <code>make lab</code>.</p>
+  <h3 style="margin-top:22px">Notebook</h3>
+  <p class="muted small"><code>{{ study.folder }}/{{ study.notebook }}</code> — scaffolded,
+     with the modelling left to do. Clone the repo and run <code>make lab</code>.</p>
 
-  <details>
+  <details class="disclosure">
     <summary>Week README</summary>
-    <div class="prose">{{ study.readme | markdown }}</div>
+    <div class="prose" style="margin-top:14px">{{ study.readme | markdown }}</div>
   </details>
   {% else %}
   <p class="muted">No week folder found on this server.</p>
   {% endif %}
 </section>
+
+<script>
+// Progressive enhancement only: the form posts identically with JS disabled.
+(function () {
+  var dz = document.getElementById('dz'), input = document.getElementById('dzinput');
+  if (!dz || !input) return;
+  var main = document.getElementById('dzmain'), sub = document.getElementById('dzsub');
+
+  function show(f) {
+    if (!f) return;
+    dz.classList.add('has-file');
+    main.textContent = f.name;
+    sub.textContent = (f.size / 1048576).toFixed(2) + ' MB — ready to score';
+  }
+  input.addEventListener('change', function () { show(input.files[0]); });
+  ['dragenter', 'dragover'].forEach(function (e) {
+    dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.add('hot'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    dz.addEventListener(e, function (ev) { ev.preventDefault(); dz.classList.remove('hot'); });
+  });
+  dz.addEventListener('drop', function (ev) {
+    if (ev.dataTransfer.files.length) { input.files = ev.dataTransfer.files; show(input.files[0]); }
+  });
+})();
+</script>
 
 {% endblock %}

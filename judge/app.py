@@ -24,6 +24,7 @@ from starlette.middleware.sessions import SessionMiddleware
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from judge import security as sec                                    # noqa: E402
+from judge.charts import calibration_scatter, score_bar_width        # noqa: E402
 from judge.competitions import COMPETITIONS, UPCOMING, get           # noqa: E402
 from judge.models import Submission, User, engine, init_db, utcnow   # noqa: E402
 from judge.scoring import Rejected, score_submission                 # noqa: E402
@@ -147,9 +148,83 @@ def leaderboard_rows(db: Session, week: int, reveal_private: bool = False) -> li
             "n_entries": sum(1 for x, _ in scored if x.user_id == u.id and not x.is_baseline),
         })
     out.sort(key=lambda r: r["score"], reverse=comp.primary_metric.higher_is_better)
-    for i, r in enumerate(out, 1):
-        r["rank"] = i
+
+    # Presentation extras the table needs: a bar scaled across the observed field, and
+    # improvement over the base-rate predictor (the "is this model worth existing" number).
+    if out:
+        best, worst = out[0]["score"], out[-1]["score"]
+        base = next((r["score"] for r in out if r["label"] == "base_rate"), None)
+        for i, r in enumerate(out, 1):
+            r["rank"] = i
+            r["bar"] = score_bar_width(r["score"], best, worst,
+                                       comp.primary_metric.higher_is_better)
+            if base and base > 0 and r["label"] != "base_rate":
+                gain = (base - r["score"]) / base * 100.0
+                r["vs_base"] = gain if not comp.primary_metric.higher_is_better else -gain
+            else:
+                r["vs_base"] = None
     return out
+
+
+def _row_total(comp) -> int:
+    """Train + test rows for a prepared competition, cached — used by the index strip."""
+    f = competition_facts(comp)
+    return _unfmt(f["train_rows"]) + _unfmt(f["test_rows"])
+
+
+def _unfmt(s: str) -> int:
+    s = s.strip()
+    if s.endswith("M"):
+        return int(float(s[:-1]) * 1_000_000)
+    if s.endswith("k"):
+        return int(float(s[:-1]) * 1_000)
+    return int(s) if s.isdigit() else 0
+
+
+def _fmt_count(n: int) -> str:
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M".replace(".0M", "M")
+    if n >= 1_000:
+        return f"{n // 1000}k"
+    return str(n)
+
+
+def competition_facts(comp) -> dict:
+    """Headline numbers for the week page's stat strip, read off the prepared files."""
+    import pandas as pd
+
+    facts = {"train_rows": "—", "test_rows": "—", "base_rate": "—",
+             "split": "time", "train_size": "—", "test_size": "—", "sample_size": "—"}
+    if not comp.is_prepared:
+        return facts
+
+    def mb(p):
+        return f"{p.stat().st_size / 1e6:.0f} MB"
+
+    facts["train_size"] = mb(comp.train_file)
+    facts["test_size"] = mb(comp.test_file)
+    facts["sample_size"] = mb(comp.sample_file)
+
+    # Cached on the function: reading a 400k-row parquet on every page view is silly.
+    cached = getattr(competition_facts, "_cache", {}).get(comp.week)
+    if cached:
+        facts.update(cached)
+        return facts
+
+    sol = pd.read_parquet(comp.solution_file)
+    n_test = len(sol)
+    n_train = sum(1 for _ in __import__("gzip").open(comp.train_file, "rb")) - 1
+    extra = {
+        "train_rows": _fmt_count(n_train),
+        "test_rows": _fmt_count(n_test),
+        "base_rate": f"{sol[comp.target_column].mean() * 100:.2f}%",
+        "split": "time-ordered",
+    }
+    store = getattr(competition_facts, "_cache", {})
+    store[comp.week] = extra
+    competition_facts._cache = store
+    facts.update(extra)
+    return facts
 
 
 # --------------------------------------------------------------------------------------
@@ -214,7 +289,21 @@ def index(request: Request):
             select(Submission.week, func.count(func.distinct(Submission.user_id)))
             .where(Submission.status == "scored", Submission.is_baseline == False)  # noqa: E712
             .group_by(Submission.week)).all())
-    return render(request, "index.html", counts=counts, entrants=entrants)
+        leaders = {}
+        for w in COMPETITIONS:
+            rows = leaderboard_rows(db, w)
+            if rows:
+                leaders[w] = rows[0]
+
+    prepared = [c for c in COMPETITIONS.values() if c.is_prepared]
+    totals = {
+        "weeks": len(prepared),
+        "entrants": sum(entrants.values()),
+        "submissions": sum(counts.values()),
+        "rows": _fmt_count(sum(_row_total(c) for c in prepared)),
+    }
+    return render(request, "index.html", counts=counts, entrants=entrants,
+                  leaders=leaders, totals=totals)
 
 
 @app.get("/week/{week}", response_class=HTMLResponse)
@@ -231,8 +320,17 @@ def week_page(request: Request, week: int):
                 .where(Submission.user_id == user.id, Submission.week == week)
                 .order_by(Submission.created_at.desc()).limit(25)).all()
         board = leaderboard_rows(db, week)
+        used_today = 0
+        if user:
+            used_today = db.exec(select(func.count(Submission.id)).where(
+                Submission.user_id == user.id, Submission.week == week,
+                Submission.status == "scored",
+                Submission.created_at >= utcnow() - timedelta(days=1))).one()
+
+    chart = calibration_scatter(board, you=user.display_name if user else None)
     return render(request, "week.html", comp=comp, board=board, mine=mine,
-                  study=study_material(week))
+                  study=study_material(week), facts=competition_facts(comp),
+                  chart=chart, used_today=used_today)
 
 
 @app.get("/week/{week}/leaderboard", response_class=HTMLResponse)
@@ -241,8 +339,10 @@ def leaderboard_page(request: Request, week: int):
     if comp is None:
         raise HTTPException(404, "No such competition.")
     with Session(engine) as db:
+        user = current_user(request, db)
         board = leaderboard_rows(db, week)
-    return render(request, "leaderboard.html", comp=comp, board=board)
+    chart = calibration_scatter(board, you=user.display_name if user else None)
+    return render(request, "leaderboard.html", comp=comp, board=board, chart=chart)
 
 
 def study_material(week: int) -> dict:

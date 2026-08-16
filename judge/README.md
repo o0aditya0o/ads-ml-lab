@@ -31,6 +31,28 @@ Study material is read off disk from the repo's `weekNN_*/` folder at request ti
 week README and paper index are not duplicated into the judge, so editing the README
 updates the site.
 
+## The interface
+
+Dark-first, because the audience lives there; light is a designed mode with its own token
+set, not an inverted one. The toggle in the header persists to `localStorage` and is
+applied before first paint, so a light-mode user never sees a dark flash.
+
+Numbers are the content of this product, so every figure is set in a tabular-numeral mono
+face and columns of digits align by construction.
+
+**The leaderboard carries a chart**, and it is not decoration: every entry is plotted by
+how well it *ranks* (AUC) against how well it is *priced* (calibration ratio), with a
+dashed reference at 1.0. The two axes are independent, so an entry can sit far right and
+far off the line — a model that orders impressions correctly and would still overbid every
+auction it wins. The site argues its own case instead of asserting it in a paragraph.
+
+Chart colours are the validated dataviz defaults — slot 1 blue for entrants, slot 2 orange
+for you. Baselines are deliberately *not* a third hue: they are reference marks, so they
+take neutral ink and a square marker, which keeps the categorical set at two and carries
+identity by shape as well as colour. Both modes clear the all-pairs CVD and normal-vision
+floors against their surfaces (worst pair ΔE 26.8 CVD / 31.8 normal in dark; 24.7 / 33.6
+in light). Do not substitute by eye — re-run the validator.
+
 ## Design decisions worth knowing
 
 **Ranked on normalised entropy, not AUC.** AUC is invariant to monotone rescaling: a
