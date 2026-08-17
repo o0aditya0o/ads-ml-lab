@@ -114,9 +114,7 @@ def summary(week: int) -> dict:
     d = week_folder(week)
     if d is None:
         return {}
-    ps = papers(week)
     return {
         "folder": d.name,
-        "papers": ps,
-        "n_papers": sum(1 for p in ps if not p.get("missing")),
+        "papers": papers(week),
     }
