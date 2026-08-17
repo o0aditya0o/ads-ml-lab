@@ -152,7 +152,7 @@ read-only and cannot create repos:
 
 ```bash
 # create a token with the "Write" role at https://huggingface.co/settings/tokens
-huggingface-cli login
+hf auth login                 # `huggingface-cli` was removed in huggingface_hub 1.x
 make judge-publish            # or: python tools/publish_competition.py --week 1
 python tools/publish_competition.py --week 1 --verify
 ```

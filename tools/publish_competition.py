@@ -22,9 +22,9 @@ Usage
     python tools/publish_competition.py --week 1
     python tools/publish_competition.py --week 1 --verify    # check what is actually up there
 
-Requires a WRITE token: `huggingface-cli login` with a token created as "Write", or
-HF_TOKEN in the environment. The read-only token used to download the source data cannot
-create repos.
+Requires a WRITE token: `hf auth login` with a token created as "Write", or HF_TOKEN in
+the environment. The read-only token used to download the source data cannot create repos.
+(`huggingface-cli` was removed in huggingface_hub 1.x; the CLI is `hf` now.)
 """
 from __future__ import annotations
 
@@ -168,7 +168,7 @@ def check_write_token(token: str | None) -> str | None:
     if role and role not in ("write", "admin"):
         return (f"the active token is '{role}', which cannot create repos or upload.\n"
                 f"      Create a WRITE token at https://huggingface.co/settings/tokens\n"
-                f"      then run:  huggingface-cli login\n"
+                f"      then run:  hf auth login\n"
                 f"      (or set HF_TOKEN to the write token for this command only)")
     return None
 
