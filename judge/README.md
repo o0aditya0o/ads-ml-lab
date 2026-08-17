@@ -3,6 +3,10 @@
 A small Kaggle-shaped competition server for the twelve weeks. Week 1 is live; the other
 eleven are listed as locked so the shape of the course is visible from the front page.
 
+For what the pieces *are* — the answer key, the split recipe, the user journeys — see
+[`../docs/how-it-works.md`](../docs/how-it-works.md). For where this runs and what it costs,
+see [`../docs/deployment.md`](../docs/deployment.md).
+
 ```bash
 make judge-data     # build week 1's competition files from data/raw  (one time)
 make judge          # http://localhost:8000

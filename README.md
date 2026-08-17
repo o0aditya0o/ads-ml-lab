@@ -8,6 +8,11 @@ Every model is built against a dumb baseline, evaluated on a time-ordered split,
 scored with the same metric bundle from week 1 to week 12 — so the numbers in week 9 are
 comparable to the numbers in week 1, which is the whole reason for the shared harness.
 
+**New here?** [`docs/how-it-works.md`](docs/how-it-works.md) explains what every piece is —
+where the data comes from, what the answer key is, how scoring works, and the three
+different ways people use this repo. [`docs/deployment.md`](docs/deployment.md) covers where
+it all runs and what each option costs.
+
 ---
 
 ## Quick start
