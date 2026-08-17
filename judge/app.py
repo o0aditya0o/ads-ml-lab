@@ -528,7 +528,13 @@ def signup_page(request: Request):
 def signup(request: Request, email: str = Form(...), display_name: str = Form(...),
            password: str = Form(...), csrf: str = Form("")):
     sec.require_csrf(request, csrf)
-    sec.rate_limit(f"signup:{sec.client_ip(request)}", limit=5, window_s=3600)
+    ip = sec.client_ip(request)
+    # Two limits with different jobs. The loose one bounds how hard an IP may hammer the
+    # form at all; the strict one — applied only once the input is valid and the account
+    # is about to exist — bounds how many accounts it can actually create. Charging a
+    # rejected password against the account cap would mean five typos locks you out for
+    # an hour, which punishes the wrong person.
+    sec.rate_limit(f"signup-attempt:{ip}", limit=20, window_s=3600)
 
     email = email.strip().lower()
     display_name = display_name.strip()
@@ -543,6 +549,7 @@ def signup(request: Request, email: str = Form(...), display_name: str = Form(..
         if db.exec(select(User).where(User.display_name == display_name)).first():
             flash(request, "That display name is taken.", "error")
             return RedirectResponse("/signup", status.HTTP_303_SEE_OTHER)
+        sec.rate_limit(f"signup:{ip}", limit=5, window_s=3600)
         u = User(email=email, display_name=display_name,
                  password_hash=sec.hash_password(password))
         db.add(u)

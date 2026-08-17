@@ -429,24 +429,6 @@ a.card:hover h3 { color: var(--wk); }
 .pager .pager-next { text-align: right; }
 .pager .pager-prev + .pager-next { flex: 1; }
 
-/* ============================================================ notebook */
-.nb { display: flex; flex-direction: column; gap: 2px; }
-.nb-md { padding: 14px 0 6px; max-width: 74ch; }
-.nb-md > :first-child { margin-top: 0; }
-.nb-code { position: relative; margin: 6px 0 14px; }
-.nb-code pre {
-  margin: 0; padding: 15px 16px 15px 18px; overflow-x: auto;
-  background: var(--surface-sunk); border-radius: var(--radius-sm);
-  border-left: 2px solid color-mix(in oklab, var(--wk) 45%, transparent);
-  font-size: .82rem; line-height: 1.6;
-}
-.nb-code pre code { background: none; border: 0; padding: 0; color: var(--ink); }
-.nb-tag {
-  position: absolute; top: 8px; right: 12px; font-family: var(--mono);
-  font-size: .62rem; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--ink-3); pointer-events: none;
-}
-
 /* ============================================================ pdf viewer */
 .pdf-frame {
   height: min(78vh, 900px); border-radius: var(--radius); overflow: hidden;

@@ -27,16 +27,19 @@ judge/
 Scoring calls the **same** `adslab.metrics` the notebooks use. If your local number and
 the leaderboard disagree, it is the split or the join, never the metric.
 
-Study material is read off disk from the repo's `weekNN_*/` folder at request time — the
-week README, the papers and the notebook are not duplicated into the judge, so editing
-the README updates the site and there is no second copy to drift.
+Study material is the week's reading, read off disk from the repo's `weekNN_*/papers/`
+folder at request time — not duplicated into the judge, so there is no second copy to
+drift.
 
-**Everything is served locally.** The papers are already in the folder, so sending a
-reader to GitHub to read them was a pointless round trip. `judge/study.py` lists the
-week's `papers/` directory, titles each entry by parsing the generated index, and serves
-PDFs into an inline viewer; the Privacy Sandbox markdown explainers render as prose. The
-notebook is parsed and rendered cell by cell — markdown as prose, code in read-only
-blocks — so you can read the whole week before deciding to clone anything.
+**The papers are served locally.** They are already on disk, so sending a reader to
+GitHub to read them was a pointless round trip. `judge/study.py` lists the directory,
+titles each entry by parsing the generated index, and serves PDFs into an inline viewer;
+the Privacy Sandbox markdown explainers render as prose instead.
+
+The week README and the notebook are deliberately *not* shown here. They are working
+documents for someone who has cloned the repo — a write-up template with empty sections
+and a scaffold full of `TODO`s — and an entrant reading the competition page has no use
+for either.
 
 Paper serving is traversal-proof by construction: the request is reduced to a basename,
 the extension must be in a two-entry allow-list, and the resolved path must still sit
@@ -103,6 +106,11 @@ part. This is the whole argument of Week 3, enforced by the leaderboard.
 **Public/private split, 30/70.** Deterministic on a hash of the impression id, not a
 random draw, so re-preparing does not reshuffle which rows are public and invalidate
 scores already on the board.
+
+**Rate limits are split by what they protect.** Signup has a loose cap on attempts and a
+strict cap on accounts actually created, applied only once the input is valid — charging
+a rejected password against the account cap would mean five typos locks you out for an
+hour, which punishes the wrong person. Same reasoning as the submission cap below.
 
 **The daily cap counts scored submissions only.** Its purpose is to stop leaderboard
 overfitting. A file rejected for a bad header taught the entrant nothing about the test

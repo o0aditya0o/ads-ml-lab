@@ -20,11 +20,15 @@ from http.cookiejar import CookieJar
 
 BASE = "http://127.0.0.1:8000"
 
-# Unique per run so the suite is re-runnable against a live database instead of
-# demanding a wipe between runs.
+# A stable account rather than a fresh one per run. Creating a new account each time
+# burned the signup cap after a couple of runs, which made the suite unrunnable for an
+# hour — the limiter was right and the test was wrong.
 RUN = str(int(__import__("time").time()))[-6:]
-EMAIL = f"smoke{RUN}@example.com"
-NAME = f"smoke tester {RUN}"
+# example.com is reserved and validates; .local / .test / .invalid do not —
+# email_validator rejects special-use domains even with deliverability off.
+EMAIL = "smoke@example.com"
+NAME = "smoke tester"
+PASSWORD = "smoke-test-account-pw"
 PASSED, FAILED = [], []
 
 _jar = CookieJar()
@@ -89,7 +93,7 @@ def main() -> int:
     for path, needle in [("/week/1/data", b"sample_submission.csv.gz"),
                          ("/week/1/submit", b"Submit predictions"),
                          ("/week/1/leaderboard", b"Public leaderboard"),
-                         ("/week/1/study", b"Week notes")]:
+                         ("/week/1/study", b"Reading")]:
         st, body = req(path)
         check(f"{path} renders", st == 200 and needle in body, f"status {st}")
 
@@ -100,10 +104,11 @@ def main() -> int:
 
     print("\n" + "=" * 70, "\nstudy material is served inline\n" + "=" * 70)
     st, body = req("/week/1/study")
-    check("week README rendered inline", b"What surprised me" in body)
-    check("notebook rendered inline", b"nb-code" in body and b"harness ready" in body)
-    check("no github link in study material", b"github.com" not in body.split(b"<footer")[0].split(b"<main")[1])
     check("papers listed with titles", b"View from the Trenches" in body)
+    check("no github link in study material",
+          b"github.com" not in body.split(b"<footer")[0].split(b"<main")[1])
+    check("week notes are not on the study page", b"Week notes" not in body)
+    check("notebook is not on the study page", b"nb-code" not in body)
 
     paper = b"mcmahan2013-ftrl-view-from-the-trenches.pdf".decode()
     st, body = req(f"/week/1/study/paper/{paper}")
@@ -155,12 +160,15 @@ def main() -> int:
                              "display_name": f"x{RUN}", "password": "correcthorse1"})
     check("bad CSRF token rejected", st == 403, f"status {st}")
 
-    tok = csrf()
-    st, _ = form("/signup", {"csrf": tok, "email": EMAIL,
-                             "display_name": NAME, "password": "correcthorse1"})
-    check("signup succeeds", st == 200, f"status {st}")
+    # Sign up the stable account, or sign in to it if a previous run already made it.
+    form("/signup", {"csrf": csrf(), "email": EMAIL,
+                     "display_name": NAME, "password": PASSWORD})
     st, body = req("/")
-    check("session is active", NAME.encode() in body)
+    if NAME.encode() not in body:
+        form("/login", {"csrf": csrf(), "email": EMAIL, "password": PASSWORD, "next": "/"})
+        st, body = req("/")
+    check("signed in (signed up, or signed in to the existing account)",
+          NAME.encode() in body)
 
     print("\n" + "=" * 70, "\nsubmission validation\n" + "=" * 70)
     tok = csrf()

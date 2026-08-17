@@ -33,41 +33,6 @@
   </ul>
 </section>
 
-<section class="panel">
-  <header>
-    <div>
-      <h2>Week notes</h2>
-      <p class="muted small">Rendered from <code>{{ study.folder }}/README.md</code> —
-        one source of truth, so the notes and this page cannot drift apart.</p>
-    </div>
-  </header>
-  <div class="prose">{{ study.readme | markdown }}</div>
-</section>
-
-{% if study.notebook and study.notebook.cells %}
-<section class="panel">
-  <header>
-    <div>
-      <h2>Notebook</h2>
-      <p class="muted small"><code>{{ study.folder }}/{{ study.notebook.name }}</code> —
-        {{ study.notebook.cells|length }} cells, {{ study.notebook.n_code }} of them code.
-        Scaffolded, with the modelling left to do. Clone the repo and run
-        <code>make lab</code> to execute it.</p>
-    </div>
-  </header>
-
-  <div class="nb">
-    {% for c in study.notebook.cells %}
-      {% if c.type == 'markdown' %}
-        <div class="nb-md prose">{{ c.source | markdown }}</div>
-      {% else %}
-        <div class="nb-code"><span class="nb-tag">code</span><pre><code>{{ c.source }}</code></pre></div>
-      {% endif %}
-    {% endfor %}
-  </div>
-</section>
-{% endif %}
-
 {% endif %}
 
 <nav class="pager">

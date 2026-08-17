@@ -1,15 +1,13 @@
 """Reading the week's study material off disk and turning it into page content.
 
-Nothing here is duplicated from the repo — the week README, the papers and the notebook
-*are* the repo's `weekNN_*/` folder, served in place. Editing the README updates the site,
-and there is no second copy to drift.
+Nothing here is duplicated from the repo — the papers *are* the files in the repo's
+`weekNN_*/papers/` folder, served in place, so there is no second copy to drift.
 
-Everything is served locally rather than linked out to GitHub: the papers are already in
-the folder, so making a reader leave the site to read them was a pointless round trip.
+They are served locally rather than linked out to GitHub: the files are already on disk,
+so making a reader leave the site to read them was a pointless round trip.
 """
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -111,42 +109,6 @@ def resolve_paper(week: int, name: str) -> Path | None:
     return target
 
 
-def readme(week: int) -> str:
-    d = week_folder(week)
-    if d is None:
-        return ""
-    f = d / "README.md"
-    return f.read_text() if f.exists() else ""
-
-
-def notebook(week: int) -> dict:
-    """Parse the week's notebook into renderable cells.
-
-    Outputs are stripped in this repo (`make clean-nb`), so there is nothing to render
-    but the source — which is the part worth reading anyway, since the notebooks ship
-    scaffolded rather than solved.
-    """
-    d = week_folder(week)
-    if d is None:
-        return {}
-    nb_path = d / f"{d.name}.ipynb"
-    if not nb_path.exists():
-        return {}
-    try:
-        nb = json.loads(nb_path.read_text())
-    except (ValueError, OSError):
-        return {"name": nb_path.name, "cells": [], "error": "could not parse"}
-
-    cells = []
-    for c in nb.get("cells", []):
-        src = "".join(c.get("source", []))
-        if not src.strip():
-            continue
-        cells.append({"type": c.get("cell_type", "code"), "source": src})
-    return {"name": nb_path.name, "cells": cells,
-            "n_code": sum(1 for c in cells if c["type"] == "code")}
-
-
 def summary(week: int) -> dict:
     """Everything the study pages need, in one call."""
     d = week_folder(week)
@@ -157,6 +119,4 @@ def summary(week: int) -> dict:
         "folder": d.name,
         "papers": ps,
         "n_papers": sum(1 for p in ps if not p.get("missing")),
-        "readme": readme(week),
-        "notebook": notebook(week),
     }
