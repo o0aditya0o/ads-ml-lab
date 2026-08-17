@@ -30,8 +30,11 @@ ATTRIBUTION_COLS = {
     "conversion_id": "groups the impressions that competed for one conversion",
     "attribution": "1 if Criteo's own last-click rule gave THIS impression the credit",
     "click": "1 if the impression was clicked",
-    "click_pos": "index of this click within the user's click sequence, -1 if not clicked",
-    "click_nb": "number of clicks the user made in the window",
+    "click_pos": ("nominally the click's index in the user's sequence — but MEASURED, it "
+                  "is -1 on every non-converting impression and >=1 on every converting "
+                  "one, so it encodes the label exactly. Never use it as a feature"),
+    "click_nb": ("nominally the user's click count — same problem as click_pos: it is a "
+                 "perfect proxy for `conversion` in this file. Never use it as a feature"),
     "cost": "price paid for the impression -- Week 8 uses this for win-price distributions",
     "cpo": "cost per order at campaign level",
     "time_since_last_click": "seconds since this user's previous click, -1 if none",

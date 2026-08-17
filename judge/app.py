@@ -450,37 +450,6 @@ DOWNLOADABLE = {
 }
 
 
-# Whether a competition's public files are actually live on the Hub. Probed once per
-# process: before `tools/publish_competition.py` has run, the repo does not exist and we
-# must keep serving locally rather than redirecting people to a 404.
-_REMOTE_OK: dict[int, bool] = {}
-
-
-def remote_available(comp) -> bool:
-    if not comp.hf_repo:
-        return False
-    if comp.week in _REMOTE_OK:
-        return _REMOTE_OK[comp.week]
-
-    import urllib.error
-    import urllib.request
-
-    url = comp.remote_url("test.csv.gz")          # smallest of the public files
-    ok = False
-    try:
-        req = urllib.request.Request(url, method="HEAD",
-                                     headers={"User-Agent": "ads-ml-lab-judge"})
-        with urllib.request.urlopen(req, timeout=8) as r:
-            ok = r.status < 400
-    except Exception as e:
-        print(f"[data] {comp.hf_repo} not reachable ({type(e).__name__}); "
-              f"serving week {comp.week} files locally")
-    if ok:
-        print(f"[data] serving week {comp.week} downloads from {comp.hf_repo}")
-    _REMOTE_OK[comp.week] = ok
-    return ok
-
-
 @app.get("/week/{week}/download/{what}")
 def download(request: Request, week: int, what: str):
     comp = get(week)
@@ -494,7 +463,7 @@ def download(request: Request, week: int, what: str):
 
     # `filename` comes from the allow-list above, never from the request, so the redirect
     # target cannot be steered by a caller.
-    if remote_available(comp):
+    if comp.remote_available():
         return RedirectResponse(comp.remote_url(filename), status_code=307)
 
     path: Path = getattr(comp, attr)

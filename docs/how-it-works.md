@@ -65,7 +65,7 @@ of them is compression — both ends are already gzipped.
 ```
 4.2 GB  ──[only 1 of 4 datasets: week 1 uses attribution]──▶  653 MB
         ──[keep 11.5% of rows: 1.9M of 16.5M]─────────────▶   75 MB
-        ──[drop 6 of 22 columns]──────────────────────────▶   52 MB   ← what entrants download
+        ──[drop 8 of 22 columns]──────────────────────────▶   50 MB   ← what entrants download
                                                               58 MB   ← the folder, incl. answer key
 ```
 
@@ -88,7 +88,7 @@ other. That is fine for the gaps that matter here — the base rate and the logi
 regression are 0.195 apart — but two close entries should not be read as truly ranked. The
 private split has 3.5× more rows, so final standings are sharper than the live board.
 
-**The column drop is mostly about leakage, not size.** Six columns go:
+**The column drop is mostly about leakage, not size.** Eight columns go:
 
 | dropped | why |
 |---|---|
@@ -97,9 +97,26 @@ private split has 3.5× more rows, so final standings are sharper than the live 
 | `conversion_id` | groups the impressions of one conversion: the label in disguise |
 | `attribution` | Criteo's last-click flag — nonzero **only** on converting journeys |
 | `cpo` | campaign-level cost per order: leaks the aggregate outcome |
+| **`click_pos`, `click_nb`** | **measured to be the label exactly** — see below |
 
-Four of the six are removed because they would give away the answer. The smaller file is a
+Six of the eight are removed because they would give away the answer. The smaller file is a
 side effect.
+
+### The leak that shipped, and how it was caught
+
+The first published version of Week 1 included `click_pos` and `click_nb`. Their
+documentation describes them as a click's position in the user's sequence and the user's
+click count — perfectly reasonable features. **Measured, they are the label.** In this file
+both are `-1` on every non-converting impression and `>= 1` on every converting one, with no
+exceptions across 760,737 rows. A submission of `click_nb >= 1` scored NE 0.00741 against
+the logistic-regression baseline's 0.80457.
+
+The mistake was building the exclusion list from what the columns are *documented* to mean
+rather than from what they *contain*. The fix is
+`judge/prepare_data.py::_assert_no_feature_leaks`, which computes single-feature AUC for
+every column about to be served and refuses to write the files if any exceeds 0.99. A
+name-based blocklist only catches leaks you already know about; this catches them by
+behaviour, and it runs for every week.
 
 ---
 
@@ -107,27 +124,28 @@ side effect.
 
 All built by `judge/prepare_data.py` from the raw log.
 
-### `train.csv.gz` — 39 MB, 1,500,000 rows, public
+### `train.csv.gz` — 40 MB, 1,500,000 rows, public
 
 What an entrant learns from.
 
 ```
-impression_id  timestamp  cat1..cat9  click  click_pos  click_nb  cost  time_since_last_click  conversion
+impression_id  timestamp  cat1..cat9  click  cost  time_since_last_click  conversion
 ```
 
 `conversion` is included on purpose — this is the half of the data where you are allowed to
 see outcomes.
 
-### `test.csv.gz` — 10 MB, 400,000 rows, public
+### `test.csv.gz` — 11 MB, 400,000 rows, public
 
 Identical columns **minus `conversion`**. The entrant predicts that missing column.
 
-A precision note, because the code contains a guard that looks like more than it is: the
-feature set never included `attribution`, `conversion_timestamp`, `conversion_id` or `cpo`,
-so those are not *stripped* from the test file — they were never in either file. The `leaky`
-assertion in `prepare_data.py` exists to catch a **future** edit that adds one of them to
-`FEATURES`. `attribution` is the one to watch: it is Criteo's own last-click flag and is
-nonzero only on converting journeys, so it would hand over the label under another name.
+A precision note on the two guards in `prepare_data.py`, because they do different jobs.
+`LEAKY` is a name blocklist asserting that nothing on it reaches a served file; most of
+those columns were never in `FEATURES` to begin with, so it is protecting against a future
+edit rather than removing something today. `_assert_no_feature_leaks` is the one that
+earns its keep: it measures single-feature AUC on every column about to be shipped and
+refuses to write if any exceeds 0.99. That is what would have caught `click_nb` the first
+time.
 
 ### `sample_submission.csv.gz` — 0.9 MB
 

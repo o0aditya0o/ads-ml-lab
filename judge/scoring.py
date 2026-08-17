@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 
 from adslab import metrics as M
+from judge import reference_metrics as R
 from judge.competitions import Competition
 
 MAX_PREVIEW = 6
@@ -59,6 +60,24 @@ def _preview(values) -> str:
     v = list(values)[:MAX_PREVIEW]
     more = "" if len(values) <= MAX_PREVIEW else f", ... (+{len(values) - MAX_PREVIEW} more)"
     return ", ".join(str(x) for x in v) + more
+
+
+# Bin count is fixed and never tuned: binned ECE shrinks as bins are added, so a
+# leaderboard has to pick one number and keep it.
+ECE_BINS = 20
+
+
+def evaluate(y, p) -> dict:
+    """``adslab.metrics.evaluate`` plus a working ECE.
+
+    adslab leaves ``ece`` unimplemented on purpose — it is the Week 3 exercise — so it
+    comes back as ``None``. The judge fills it in from its own reference implementation,
+    which means every leaderboard shows calibration error, not just week 3's.
+    """
+    out = M.evaluate(y, p)
+    if out.get("ece") is None:
+        out["ece"] = R.ece(y, p, n_bins=ECE_BINS)
+    return out
 
 
 def score_submission(raw: bytes, comp: Competition) -> Score:
@@ -119,8 +138,8 @@ def score_submission(raw: bytes, comp: Competition) -> Score:
     if pub.sum() == 0 or (~pub).sum() == 0:
         raise Rejected("Internal: the solution file has an empty public or private split.")
 
-    pub_m = M.evaluate(y[pub], p[pub])
-    prv_m = M.evaluate(y[~pub], p[~pub])
+    pub_m = evaluate(y[pub], p[pub])
+    prv_m = evaluate(y[~pub], p[~pub])
     key = comp.primary_metric.key
 
     return Score(

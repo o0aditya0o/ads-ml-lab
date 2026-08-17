@@ -48,6 +48,18 @@ def build_baseline_predictions(comp: Competition, label: str) -> bytes:
         model.fit(Xtr, y[idx])
         pred = model.predict_proba(enc.transform(test))[:, 1]
 
+    elif label == "raw_uncalibrated":
+        # The predictions exactly as handed out. The bar every entry must clear, and a
+        # useful sanity check: if a submission scores worse than this, the calibrator
+        # made things worse, which happens more often than people expect.
+        pred = test["raw_prediction"].to_numpy()
+
+    elif label == "global_scalar":
+        # One multiplicative constant fitted on train — the obvious first move, and the
+        # one that a known negative-downsampling rate would give you in closed form.
+        scale = train[comp.target_column].mean() / train["raw_prediction"].mean()
+        pred = np.clip(test["raw_prediction"].to_numpy() * scale, 1e-9, 1 - 1e-9)
+
     else:
         raise ValueError(f"unknown baseline {label!r}")
 
