@@ -126,6 +126,53 @@ has nothing to traverse. `judge/smoke_test.py` probes five variants of the attac
 one: it is Criteo's own last-click flag and is nonzero only on converting journeys, so
 shipping it would hand over the answer.
 
+## Where the data lives
+
+The judge no longer has to hold the competition files. `tools/publish_competition.py`
+pushes them to two Hugging Face dataset repos:
+
+| repo | visibility | contents | size |
+|---|---|---|---|
+| `aditagar/ads-ml-lab-week01` | **public** | `train.csv.gz`, `test.csv.gz`, `sample_submission.csv.gz` | 52 MB |
+| `aditagar/ads-ml-lab-solutions` | **private** | `weekNN/solution.parquet` | 2 MB |
+
+Downloads then 307-redirect to the Hub's CDN, and the answer key is fetched once per boot
+with `HF_TOKEN`. That drops the server's storage requirement from 58 MB to **the 48 KB
+database** — which is what makes hosts with no persistent disk viable, and moves all
+download bandwidth off the server onto a CDN that is faster than a small VM anyway.
+
+These files are *derived*, not copies — a time-ordered subsample with leaky columns
+stripped and an `impression_id` assigned during preparation — so they have to be published
+rather than linked to Criteo. The upstream dataset is **CC-BY-NC-SA 4.0**, which permits
+this provided the derived data credits Criteo, stays non-commercial, and carries the same
+licence; the generated dataset card does all three.
+
+**Before publishing you need a write token.** The token used to download the source data is
+read-only and cannot create repos:
+
+```bash
+# create a token with the "Write" role at https://huggingface.co/settings/tokens
+huggingface-cli login
+make judge-publish            # or: python tools/publish_competition.py --week 1
+python tools/publish_competition.py --week 1 --verify
+```
+
+`--verify` asserts the answer key is absent from the public repo and that the solution repo
+really is private. Run it after any publish.
+
+Until this has run, nothing breaks: the download route probes the Hub once per boot and
+falls back to serving local files, logging which path it took. Publishing later needs no
+code change.
+
+## Environment
+
+| variable | required | purpose |
+|---|---|---|
+| `JUDGE_SECRET_KEY` | **in production** | signs session cookies; the app refuses to boot without it |
+| `HF_TOKEN` | only if the answer key is not on local disk | fetches `solution.parquet` from the private repo |
+| `JUDGE_DB` | no | database path; point it at a volume, or a Postgres URL later |
+| `JUDGE_ENV` | no | `production` enables secure cookies and the secret-key check |
+
 ## Deploying
 
 Built for a small deployed group. Before exposing it:
@@ -141,32 +188,20 @@ one. Store it as a platform secret, not in a file.
 
 ### Getting the competition data onto the server
 
-This is the one genuinely awkward part, and it is awkward for a good reason.
+Publish it once (above) and the server fetches what it needs. No file copying, no volume
+full of data.
 
-`solution.parquet` holds the hidden labels. **It must never be committed** — the repo is
-public, and committing it would publish the answers. Regenerating it on the server is
-also unattractive: `prepare_data` loads all 16.5M rows into memory and wants several GB,
-which is more than a small instance has.
+What still needs to survive a restart is `judge.db` — the accounts and the leaderboard,
+48 KB of it. Two ways:
 
-So prepare locally and copy the prepared directory up:
+- **A host with a disk** (Fly volume, Render paid, any VPS): point `JUDGE_DB` at it. Done.
+- **A host with no disk** (Render free, Cloud Run): point SQLModel at a free Postgres.
+  `judge/models.py` is plain SQLAlchemy `create_engine`, so this is a connection string
+  and a driver, not a rewrite.
 
-```bash
-make judge-data                       # local, ~2 min
-fly sftp shell                        # or scp / rsync for a plain VPS
-  put judge/data/week01/train.csv.gz              /data/week01/train.csv.gz
-  put judge/data/week01/test.csv.gz               /data/week01/test.csv.gz
-  put judge/data/week01/sample_submission.csv.gz  /data/week01/sample_submission.csv.gz
-  put judge/data/week01/solution.parquet          /data/week01/solution.parquet
-  put judge/data/week01/baseline_base_rate.csv.gz /data/week01/baseline_base_rate.csv.gz
-  put judge/data/week01/baseline_logreg_hashed_218.csv.gz /data/week01/baseline_logreg_hashed_218.csv.gz
-```
-
-Send the baseline caches too, or first boot will retrain the logistic regression on 1.5M
-rows before it starts serving.
-
-The whole of `judge/data/` — competition files and `judge.db` — must live on a
-**persistent volume**. On an ephemeral filesystem every deploy wipes the accounts and the
-leaderboard.
+First boot will retrain the logistic-regression baseline on 1.5M rows before it serves,
+which takes a minute or two. To avoid that, publish the baseline caches too or seed the
+database once locally and copy it up.
 
 ### Docker
 

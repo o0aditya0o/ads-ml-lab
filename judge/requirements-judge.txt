@@ -11,6 +11,9 @@ email-validator==2.4.0
 markdown==3.10
 bleach==6.3.0
 
+# fetches the private answer key at boot so the server needs no persistent disk
+huggingface_hub==1.27.0
+
 # needed by adslab.metrics / adslab.encoders, which the scorer calls
 numpy==1.26.4
 pandas==2.3.3

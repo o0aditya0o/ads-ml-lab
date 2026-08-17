@@ -5,6 +5,7 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
+from sqlalchemy import event
 from sqlmodel import Field, Session, SQLModel, create_engine
 
 JUDGE = Path(__file__).resolve().parent
@@ -12,12 +13,39 @@ DB_PATH = Path(os.environ.get("JUDGE_DB", JUDGE / "data" / "judge.db"))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 # check_same_thread=False because uvicorn serves requests on a threadpool; SQLite's own
-# locking still serialises writes. WAL keeps readers from blocking on the writer.
+# locking still serialises writes.
 engine = create_engine(
     f"sqlite:///{DB_PATH}",
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False, "timeout": 15},
     echo=False,
 )
+
+
+@event.listens_for(engine, "connect")
+def _sqlite_pragmas(dbapi_conn, _record) -> None:
+    """Settings SQLite does not apply on its own, per connection.
+
+    None of these are defaults, and an earlier version of this file described WAL in a
+    comment without ever enabling it — the database was running in ``journal_mode=delete``
+    with foreign keys unenforced. Pragmas are per-connection in SQLite, so they belong on
+    the connect event, not in a one-off call at startup.
+
+    - ``foreign_keys=ON``: SQLite writes FK constraints into the schema but ignores them
+      unless asked. ``Submission.user_id`` references ``user.id``; without this a
+      submission could outlive the account that made it.
+    - ``journal_mode=WAL``: readers stop blocking on the writer, which is what makes a
+      leaderboard read safe while a submission is being scored. Persistent once set, but
+      harmless to repeat.
+    - ``busy_timeout``: wait rather than raise "database is locked" when a write overlaps.
+    - ``synchronous=NORMAL``: the usual pairing with WAL. Durable against process crashes;
+      a power loss can cost the last transactions, which for a leaderboard is a fine trade.
+    """
+    cur = dbapi_conn.cursor()
+    cur.execute("PRAGMA foreign_keys=ON")
+    cur.execute("PRAGMA journal_mode=WAL")
+    cur.execute("PRAGMA busy_timeout=15000")
+    cur.execute("PRAGMA synchronous=NORMAL")
+    cur.close()
 
 
 def utcnow() -> datetime:

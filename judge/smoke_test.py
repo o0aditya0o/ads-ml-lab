@@ -35,6 +35,13 @@ _jar = CookieJar()
 _opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(_jar))
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Lets a test see the 307 itself instead of silently following it."""
+
+    def redirect_request(self, *a, **k):
+        return None
+
+
 def req(path, data=None, headers=None, method=None):
     r = urllib.request.Request(BASE + path, data=data, headers=headers or {}, method=method)
     try:
@@ -129,6 +136,26 @@ def main() -> int:
                   "..%2Fsolution.parquet", "train/../solution"]:
         st, _ = req(f"/week/1/download/{probe}")
         check(f"blocked: /download/{probe}", st == 404, f"status {st}")
+
+    print("\n" + "=" * 70, "\ndata source: local file or Hub redirect\n" + "=" * 70)
+    # Either mode is a correct deployment, so assert on the invariant that holds in both:
+    # the bytes arrive and they are gzip. Then report which path served them.
+    import urllib.request as _u
+    _noredir = _u.build_opener(_NoRedirect, _u.HTTPCookieProcessor(_jar))
+    try:
+        r = _noredir.open(_u.Request(BASE + "/week/1/download/train"), timeout=60)
+        code, loc = r.status, r.headers.get("location")
+    except _u.HTTPError as e:
+        code, loc = e.code, e.headers.get("location")
+    if code in (301, 302, 307, 308):
+        check("download redirects to the Hub", "huggingface.co" in (loc or ""),
+              f"location={loc}")
+        print(f"       serving from the Hub: {loc[:72]}...")
+    else:
+        check("download served locally (Hub copy not published yet)", code == 200,
+              f"status {code}")
+        print("       serving from the local file — publish with "
+              "tools/publish_competition.py")
 
     print("\n" + "=" * 70, "\ndownloads\n" + "=" * 70)
     st, train_gz = req("/week/1/download/train")
@@ -238,6 +265,16 @@ def main() -> int:
 
     st, body = req("/week/1/leaderboard")
     check("leaderboard page renders", st == 200 and NAME.encode() in body)
+
+    print("\n" + "=" * 70, "\nanswer key resolution\n" + "=" * 70)
+    from judge.competitions import WEEK1
+    check("solution resolves", WEEK1.resolve_solution().exists())
+    print(f"       from: {WEEK1.resolve_solution()}")
+    check("private solution repo is configured (diskless hosts need it)",
+          bool(WEEK1.hf_solution_repo))
+    check("answer key is never in the public download allow-list",
+          not any("solution" in v[1] for v in __import__(
+              "judge.app", fromlist=["DOWNLOADABLE"]).DOWNLOADABLE.values()))
 
     print("\n" + "=" * 70)
     print(f"{len(PASSED)} passed, {len(FAILED)} failed")

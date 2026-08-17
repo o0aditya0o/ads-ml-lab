@@ -6,6 +6,7 @@ this registry. That is the whole reason Week 1 is worth building carefully.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -40,6 +41,23 @@ class Competition:
     open: bool = True
     baselines: dict[str, str] = field(default_factory=dict)
 
+    # Where the data lives once published. The public files are served by redirecting to
+    # the Hub's CDN, which keeps 50 MB of downloads (and all of that bandwidth) off this
+    # server; the answer key goes to a private repo and is fetched once per boot.
+    hf_repo: str | None = None            # public: train / test / sample_submission
+    hf_solution_repo: str | None = None   # private: solution.parquet
+    hf_revision: str = "main"
+
+    def remote_url(self, filename: str) -> str:
+        """The *stable* resolve URL, not a signed CDN link.
+
+        The Hub answers this with its own 302 to a time-limited CloudFront URL, so
+        redirecting here keeps working indefinitely; caching the signed link would start
+        serving expired URLs a few hours later.
+        """
+        return (f"https://huggingface.co/datasets/{self.hf_repo}"
+                f"/resolve/{self.hf_revision}/{filename}")
+
     @property
     def dir(self) -> Path:
         return COMP_DATA / f"week{self.week:02d}"
@@ -61,10 +79,61 @@ class Competition:
         """Hidden labels. NEVER served over HTTP — see judge/app.py download routes."""
         return self.dir / "solution.parquet"
 
+    def resolve_solution(self) -> Path:
+        """Path to the answer key, fetching it from the private repo if it isn't local.
+
+        Prefers the local file so development and offline work are unaffected. On a host
+        with no persistent disk the fallback pulls 1.9 MB from a private dataset repo into
+        the container's ephemeral filesystem — cheap enough to redo on every cold start,
+        and the reason this app no longer needs a paid volume.
+
+        Cached per process: fetched once per boot, not once per submission.
+        """
+        if self.solution_file.exists():
+            return self.solution_file
+
+        cached = _SOLUTION_CACHE.get(self.week)
+        if cached and cached.exists():
+            return cached
+
+        if not self.hf_solution_repo:
+            raise FileNotFoundError(
+                f"{self.solution_file} is missing and no hf_solution_repo is configured — "
+                f"run `python -m judge.prepare_data --week {self.week}`")
+
+        token = os.environ.get("HF_TOKEN")
+        if not token:
+            raise RuntimeError(
+                "HF_TOKEN is not set, so the answer key cannot be fetched from "
+                f"{self.hf_solution_repo}. Set it as a platform secret, or prepare the "
+                f"data locally with `python -m judge.prepare_data --week {self.week}`.")
+
+        from huggingface_hub import hf_hub_download
+
+        # One private repo holds every week's answer key, so the path is week-scoped.
+        # Keep this in step with tools/publish_competition.py.
+        p = Path(hf_hub_download(self.hf_solution_repo,
+                                 f"week{self.week:02d}/solution.parquet",
+                                 repo_type="dataset", revision=self.hf_revision,
+                                 token=token))
+        _SOLUTION_CACHE[self.week] = p
+        return p
+
     @property
     def is_prepared(self) -> bool:
-        return all(p.exists() for p in
-                   (self.train_file, self.test_file, self.sample_file, self.solution_file))
+        """True when this competition can be served at all.
+
+        The answer key may be local *or* reachable in the private repo; the public files
+        may be local *or* published. Either combination is a working deployment.
+        """
+        has_public = all(p.exists() for p in
+                         (self.train_file, self.test_file, self.sample_file))
+        has_solution = self.solution_file.exists() or bool(self.hf_solution_repo)
+        return (has_public or bool(self.hf_repo)) and has_solution
+
+
+# Resolved answer-key paths, keyed by week. Populated on first use per process.
+_SOLUTION_CACHE: dict[int, Path] = {}
 
 
 # --------------------------------------------------------------------------------------
@@ -157,6 +226,12 @@ WEEK1 = Competition(
         "base_rate": "Predict the training base rate for every row. NE is 1.0 by construction.",
         "logreg_hashed_2^18": "Logistic regression on cat1..cat9 hashed to 262k buckets.",
     },
+    # Namespace is the Hugging Face username (aditagar), which is not the GitHub one.
+    # Until `tools/publish_competition.py` has actually pushed these, the download route
+    # probes the repo once and quietly falls back to serving the local files — so setting
+    # this early is safe and publishing later needs no code change.
+    hf_repo="aditagar/ads-ml-lab-week01",
+    hf_solution_repo="aditagar/ads-ml-lab-solutions",
 )
 
 COMPETITIONS: dict[int, Competition] = {c.week: c for c in [WEEK1]}

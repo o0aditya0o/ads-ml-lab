@@ -1,7 +1,7 @@
 PY := /opt/homebrew/bin/python3.10
 export PYTHONPATH := .
 
-.PHONY: help setup papers data verify test lab table clean-nb kernel judge judge-data judge-test
+.PHONY: help setup papers data verify test lab table clean-nb kernel judge judge-data judge-test judge-publish
 
 help:            ## show this help
 	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | sed 's/:.*##/\t/' | expand -t22
@@ -43,3 +43,6 @@ judge:           ## run the competition server at http://localhost:8000
 
 judge-test:      ## end-to-end smoke test against a running judge
 	$(PY) -m judge.smoke_test
+
+judge-publish:   ## push week 1's data to the Hub (needs a WRITE token; --dry-run first)
+	$(PY) tools/publish_competition.py --week 1

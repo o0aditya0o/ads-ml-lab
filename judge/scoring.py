@@ -100,7 +100,7 @@ def score_submission(raw: bytes, comp: Competition) -> Score:
         raise Rejected(f"{int(dupes.sum())} duplicate {id_col} value(s): "
                        f"{_preview(sub.loc[dupes, id_col].unique())}.")
 
-    sol = pd.read_parquet(comp.solution_file)
+    sol = pd.read_parquet(comp.resolve_solution())
     need, got = set(sol[id_col]), set(sub[id_col])
 
     missing, extra = need - got, got - need
