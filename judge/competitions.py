@@ -101,21 +101,26 @@ class Competition:
                 f"{self.solution_file} is missing and no hf_solution_repo is configured — "
                 f"run `python -m judge.prepare_data --week {self.week}`")
 
-        token = os.environ.get("HF_TOKEN")
-        if not token:
-            raise RuntimeError(
-                "HF_TOKEN is not set, so the answer key cannot be fetched from "
-                f"{self.hf_solution_repo}. Set it as a platform secret, or prepare the "
-                f"data locally with `python -m judge.prepare_data --week {self.week}`.")
+        # HF_TOKEN is how a deployed instance authenticates; locally the token saved by
+        # `hf auth login` is picked up automatically when this is None. Don't demand the
+        # env var when a perfectly good stored credential already exists.
+        token = os.environ.get("HF_TOKEN") or None
 
         from huggingface_hub import hf_hub_download
 
         # One private repo holds every week's answer key, so the path is week-scoped.
         # Keep this in step with tools/publish_competition.py.
-        p = Path(hf_hub_download(self.hf_solution_repo,
-                                 f"week{self.week:02d}/solution.parquet",
-                                 repo_type="dataset", revision=self.hf_revision,
-                                 token=token))
+        try:
+            p = Path(hf_hub_download(self.hf_solution_repo,
+                                     f"week{self.week:02d}/solution.parquet",
+                                     repo_type="dataset", revision=self.hf_revision,
+                                     token=token))
+        except Exception as e:
+            raise RuntimeError(
+                f"could not fetch the answer key from {self.hf_solution_repo} "
+                f"({type(e).__name__}). It is a private repo, so the instance needs a "
+                f"read token in HF_TOKEN — or prepare the data locally with "
+                f"`python -m judge.prepare_data --week {self.week}`.") from e
         _SOLUTION_CACHE[self.week] = p
         return p
 

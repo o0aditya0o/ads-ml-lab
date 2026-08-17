@@ -195,40 +195,54 @@ def _fmt_count(n: int) -> str:
 
 
 def competition_facts(comp) -> dict:
-    """Headline numbers for the week page's stat strip, read off the prepared files."""
-    import pandas as pd
+    """Headline numbers for the week page's stat strip.
 
-    facts = {"train_rows": "—", "test_rows": "—", "base_rate": "—",
-             "split": "time", "train_size": "—", "test_size": "—", "sample_size": "—"}
-    if not comp.is_prepared:
-        return facts
+    Reads the small ``facts.json`` written by ``prepare_data`` — locally if present,
+    otherwise from the published dataset repo. It deliberately does **not** stat the data
+    files or count rows in a 41 MB gzip: that costs real time on a cold start and, more to
+    the point, those files do not exist on a host with no local copy of the data, which is
+    the deployment this whole change exists to enable.
+    """
+    import json
 
-    def mb(p):
-        return f"{p.stat().st_size / 1e6:.0f} MB"
+    blank = {"train_rows": "\u2014", "test_rows": "\u2014", "base_rate": "\u2014",
+             "split": "time", "train_size": "\u2014", "test_size": "\u2014",
+             "sample_size": "\u2014"}
 
-    facts["train_size"] = mb(comp.train_file)
-    facts["test_size"] = mb(comp.test_file)
-    facts["sample_size"] = mb(comp.sample_file)
-
-    # Cached on the function: reading a 400k-row parquet on every page view is silly.
     cached = getattr(competition_facts, "_cache", {}).get(comp.week)
     if cached:
-        facts.update(cached)
-        return facts
+        return cached
 
-    sol = pd.read_parquet(comp.solution_file)
-    n_test = len(sol)
-    n_train = sum(1 for _ in __import__("gzip").open(comp.train_file, "rb")) - 1
-    extra = {
-        "train_rows": _fmt_count(n_train),
-        "test_rows": _fmt_count(n_test),
-        "base_rate": f"{sol[comp.target_column].mean() * 100:.2f}%",
+    raw = None
+    local = comp.dir / "facts.json"
+    if local.exists():
+        raw = json.loads(local.read_text())
+    elif comp.hf_repo:
+        try:
+            import urllib.request
+            req = urllib.request.Request(comp.remote_url("facts.json"),
+                                         headers={"User-Agent": "ads-ml-lab-judge"})
+            with urllib.request.urlopen(req, timeout=10) as r:
+                raw = json.load(r)
+        except Exception as e:
+            print(f"[data] facts.json unavailable for week {comp.week} "
+                  f"({type(e).__name__}); stat strip will show placeholders")
+
+    if not raw:
+        return blank
+
+    facts = {
+        "train_rows": _fmt_count(int(raw["train_rows"])),
+        "test_rows": _fmt_count(int(raw["test_rows"])),
+        "base_rate": f"{float(raw['base_rate']) * 100:.2f}%",
         "split": "time-ordered",
+        "train_size": f"{raw['train_size_mb']:.0f} MB",
+        "test_size": f"{raw['test_size_mb']:.0f} MB",
+        "sample_size": f"{raw['sample_size_mb']:.0f} MB",
     }
     store = getattr(competition_facts, "_cache", {})
-    store[comp.week] = extra
+    store[comp.week] = facts
     competition_facts._cache = store
-    facts.update(extra)
     return facts
 
 

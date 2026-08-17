@@ -40,7 +40,8 @@ from judge.competitions import COMPETITIONS, Competition  # noqa: E402
 # than trusted to the caller getting the argument order right.
 SECRET_FILES = {"solution.parquet"}
 
-PUBLIC_FILES = ["train.csv.gz", "test.csv.gz", "sample_submission.csv.gz"]
+PUBLIC_FILES = ["train.csv.gz", "test.csv.gz", "sample_submission.csv.gz",
+                "facts.json"]
 
 CARD = """\
 ---

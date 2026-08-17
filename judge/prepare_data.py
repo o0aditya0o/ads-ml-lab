@@ -105,6 +105,18 @@ def prepare_week1(comp: Competition, seed: int = 0) -> None:
     })
     sol.to_parquet(comp.solution_file, index=False)
 
+    # Header facts, computed once here rather than re-derived on every page view — and,
+    # more importantly, available to an instance that has no local copy of the data.
+    import json
+    (comp.dir / "facts.json").write_text(json.dumps({
+        "train_rows": len(train),
+        "test_rows": len(test),
+        "base_rate": float(test[comp.target_column].mean()),
+        "train_size_mb": round(comp.train_file.stat().st_size / 1e6, 1),
+        "test_size_mb": round(comp.test_file.stat().st_size / 1e6, 1),
+        "sample_size_mb": round(comp.sample_file.stat().st_size / 1e6, 1),
+    }, indent=2))
+
     print(f"\n  train  {len(train):>9,} rows  {comp.train_file.stat().st_size/1e6:6.1f} MB  "
           f"base rate {train[comp.target_column].mean():.4%}")
     print(f"  test   {len(test):>9,} rows  {comp.test_file.stat().st_size/1e6:6.1f} MB  "
