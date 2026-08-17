@@ -494,6 +494,47 @@ a.card:hover h3 { color: var(--wk); }
 .file .fdesc { font-size: .84rem; color: var(--ink-2); margin-top: 2px; }
 .file .fmeta { font-family: var(--mono); font-size: .76rem; color: var(--ink-3); white-space: nowrap; }
 
+/* ============================================================ data preview */
+.peek + .peek { margin-top: 26px; }
+.peek-head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 9px;
+}
+.peek-head .scroll-hint {
+  margin-left: auto; font-family: var(--mono); font-size: .68rem; color: var(--ink-3);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+.peek-head h3 {
+  font-family: var(--mono); font-size: .84rem; font-weight: 600; color: var(--ink);
+}
+/* 17 columns will not fit any screen; scroll the table, never the page. */
+.peek-wrap {
+  overflow-x: auto; border-radius: var(--radius-sm);
+  background: var(--surface-sunk);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.peek-table {
+  border-collapse: collapse; font-family: var(--mono);
+  font-variant-numeric: tabular-nums; font-size: .76rem; white-space: nowrap;
+  min-width: 100%;
+}
+.peek-table th {
+  text-align: left; padding: 9px 11px; color: var(--ink-3); font-weight: 600;
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .06em;
+  border-bottom: 1px solid var(--line);
+  position: sticky; top: 0; background: var(--surface-sunk);
+}
+.peek-table th.is-id { color: var(--ink-2); }
+.peek-table th.is-target {
+  color: var(--wk);
+  box-shadow: inset 0 -2px 0 color-mix(in oklab, var(--wk) 55%, transparent);
+}
+.peek-table td {
+  padding: 7px 11px; color: var(--ink-2);
+  border-bottom: 1px solid color-mix(in oklab, var(--line) 55%, transparent);
+}
+.peek-table tbody tr:last-child td { border-bottom: 0; }
+.peek-table tbody tr:hover td { background: color-mix(in oklab, var(--wk) 6%, transparent); }
+
 /* ============================================================ leaderboard */
 .board-wrap { overflow-x: auto; margin: 0 -26px; padding: 0 26px; }
 table.board { width: 100%; border-collapse: separate; border-spacing: 0; font-size: .9rem; }

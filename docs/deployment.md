@@ -19,13 +19,15 @@ Three places. None of them is a server the public can reach.
 │  Your MacBook                    │   │  GitHub (public)        │
 │                                  │   │  o0aditya0o/ads-ml-lab  │
 │  data/raw/          4.2 GB       │   │                         │
-│    Criteo source. Only used to   │   │  code, notebooks        │
-│    BUILD the competition. Never  │   │  56 MB of papers        │
-│    deployed anywhere.            │   │  Dockerfile             │
-│                                  │   │                         │
-│  judge/data/         58 MB       │   │  NOT: judge.db          │
-│    competition files + judge.db  │   │  NOT: solution.parquet  │
-│    (gitignored)                  │   │  NOT: raw data          │
+│    FOUR datasets. Week 1 uses    │   │  code, notebooks        │
+│    only attribution (653 MB);    │   │  56 MB of papers        │
+│    the rest are for weeks 7 &    │   │  Dockerfile             │
+│    10. Never deployed anywhere.  │   │                         │
+│                                  │   │  NOT: judge.db          │
+│  judge/data/         58 MB       │   │  NOT: solution.parquet  │
+│    11.5% of attribution's rows,  │   │  NOT: raw data          │
+│    6 of 22 columns dropped       │   │                         │
+│    + judge.db  (gitignored)      │   │                         │
 │                                  │   └─────────────────────────┘
 │  localhost:8000                  │
 │    the judge — only you can      │   ┌─────────────────────────┐

@@ -47,17 +47,75 @@
   {% endif %}
 </section>
 
+{% if preview %}
+{% macro peek(title, block, note) %}
+<div class="peek">
+  <div class="peek-head">
+    <h3>{{ title }}</h3>
+    <span class="muted small">{{ block.columns|length }} columns · {{ note }}</span>
+    {% if block.columns|length > 6 %}<span class="scroll-hint">scroll →</span>{% endif %}
+  </div>
+  <div class="peek-wrap">
+    <table class="peek-table">
+      <thead><tr>
+        {% for c in block.columns %}
+          <th class="{{ 'is-target' if c == comp.target_column }}{{ ' is-id' if c == comp.id_column }}">{{ c }}</th>
+        {% endfor %}
+      </tr></thead>
+      <tbody>
+        {% for row in block.rows %}
+        <tr>{% for v in row %}<td>{{ '—' if v is none else v }}</td>{% endfor %}</tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endmacro %}
+
+<section class="panel">
+  <header>
+    <div>
+      <h2>Preview</h2>
+      <p class="muted small">The first rows of each file, so you know what you are getting
+        before a 41 MB download.</p>
+    </div>
+  </header>
+
+  {{ peek("train.csv.gz", preview.train,
+          "the last column is the answer you learn from") }}
+  {{ peek("test.csv.gz", preview.test,
+          "same columns, minus " ~ comp.target_column) }}
+  {{ peek("sample_submission.csv.gz", preview.sample,
+          "the exact shape your file must have") }}
+
+  <p class="muted small" style="margin-top:18px">
+    The only difference between train and test is <code>{{ comp.target_column }}</code> —
+    that column is what you predict, and it lives in the answer key the judge never serves.
+  </p>
+</section>
+{% endif %}
+
 <section class="panel">
   <header><div><h2>What was removed, and why</h2></div></header>
   <div class="prose">
-    <p>Columns that would leak the answer are stripped from the test file — not just
-      <code>{{ comp.target_column }}</code> but <code>conversion_timestamp</code>,
-      <code>conversion_id</code> and <code>attribution</code>. That last one is the subtle
-      one: it is Criteo's own last-click flag and is nonzero only on converting journeys,
-      so shipping it would hand over the label under a different name.</p>
-    <p>The split boundary is a timestamp quantile, taken <em>before</em> subsampling.
-      Subsampling first and splitting second would let a test row predate a train row,
-      which is the whole failure this competition exists to avoid teaching.</p>
+    <p>The raw Criteo log has 22 columns. Six never reach either file, and four of those six
+      are dropped because they would give away the answer:</p>
+    <ul>
+      <li><code>uid</code>, <code>campaign</code> — identity rather than signal, and
+        <code>uid</code> would let you memorise users instead of modelling them.</li>
+      <li><code>conversion_timestamp</code> — <em>when</em> it converted: the label, in disguise.</li>
+      <li><code>conversion_id</code> — groups the impressions of one conversion: the label again.</li>
+      <li><code>attribution</code> — Criteo's own last-click flag, nonzero <strong>only</strong>
+        on converting journeys. The subtlest of the four.</li>
+      <li><code>cpo</code> — campaign-level cost per order, which leaks the aggregate outcome.</li>
+    </ul>
+    <p>So the only difference between the two files you download is
+      <code>{{ comp.target_column }}</code> itself. The rest were removed before either file
+      was written.</p>
+    <p>The split boundary is a timestamp quantile taken <em>before</em> subsampling.
+      Subsampling first and splitting second would let a test row predate a train row —
+      the exact failure this competition exists to avoid teaching. You can see it in the
+      preview above: train timestamps start at 4, test starts at 1,848,199.</p>
   </div>
 </section>
 

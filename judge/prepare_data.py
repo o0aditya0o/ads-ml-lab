@@ -105,9 +105,35 @@ def prepare_week1(comp: Competition, seed: int = 0) -> None:
     })
     sol.to_parquet(comp.solution_file, index=False)
 
+    # A few real rows, so the Data tab can show what people are downloading instead of
+    # describing it. Written here for the same reason as facts.json: a deployed instance
+    # has no local copy of the data to read a head() from.
+    import json
+
+    def head_records(df, cols, n=8):
+        # Round floats to 6 significant digits: `cost` is around 1e-05 and would otherwise
+        # render in scientific notation beside plain decimals, which reads as a data problem
+        # rather than a formatting one.
+        def clean(v):
+            if pd.isna(v):
+                return None
+            return float(f"{v:.6g}") if isinstance(v, float) else v
+
+        h = df[cols].head(n)
+        return {"columns": list(h.columns),
+                "rows": [[clean(v) for v in rec]
+                         for rec in h.itertuples(index=False, name=None)]}
+
+    (comp.dir / "preview.json").write_text(json.dumps({
+        "train": head_records(train, train_cols),
+        "test": head_records(test, test_cols),
+        "sample": {"columns": [comp.id_column, "prediction"],
+                   "rows": [[i, round(float(train[comp.target_column].mean()), 6)]
+                            for i in range(8)]},
+    }, indent=2, default=str))
+
     # Header facts, computed once here rather than re-derived on every page view — and,
     # more importantly, available to an instance that has no local copy of the data.
-    import json
     (comp.dir / "facts.json").write_text(json.dumps({
         "train_rows": len(train),
         "test_rows": len(test),

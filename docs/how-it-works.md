@@ -26,18 +26,22 @@ the learner's world (4.2 GB of raw data and twelve notebooks). They barely overl
 Four hops, each producing something different:
 
 ```
-[1] Criteo publishes the raw log on Hugging Face
-      criteo/criteo-attribution-dataset · 16,468,027 impressions · 30 days · CC-BY-NC-SA
+[1] Criteo publishes four datasets on Hugging Face
                     │
                     │  make data          (tools/fetch_datasets.py)
                     ▼
-[2] Your Mac: data/raw/  ·  4.2 GB
-      The source. Used by the notebooks, and to build the competition. Never deployed.
+[2] Your Mac: data/raw/  ·  4.2 GB total, FOUR separate datasets
+      attribution  653 MB   16,468,027 impressions   ← the only one week 1 uses
+      privatead    3.1 GB                            → week 10
+      uplift       297 MB                            → week 7
+      fairjob      182 MB                            → week 10 bonus
                     │
                     │  make judge-data    (judge/prepare_data.py)
+                    │  reads ONLY attribution
                     ▼
 [3] Your Mac: judge/data/week01/  ·  58 MB
-      train.csv.gz · test.csv.gz · sample_submission.csv.gz · solution.parquet · facts.json
+      train.csv.gz  39 MB   test.csv.gz  10 MB   sample_submission.csv.gz  1 MB
+      solution.parquet  2 MB   baselines  5 MB   facts.json
                     │
                     │  make judge-publish (tools/publish_competition.py)
                     ▼
@@ -52,6 +56,50 @@ Four hops, each producing something different:
 conversion timestamps, Week 6 needs user journeys and Week 11 needs sequences. None of that
 survives into the competition files. `make data` pulls from Criteo's official Hugging Face
 repos; the `go.criteo.net` links in older blog posts are dead.
+
+### Why 4.2 GB becomes 58 MB
+
+This looks like a suspiciously large shrink. It is three independent reductions, and none
+of them is compression — both ends are already gzipped.
+
+```
+4.2 GB  ──[only 1 of 4 datasets: week 1 uses attribution]──▶  653 MB
+        ──[keep 11.5% of rows: 1.9M of 16.5M]─────────────▶   75 MB
+        ──[drop 6 of 22 columns]──────────────────────────▶   52 MB   ← what entrants download
+                                                              58 MB   ← the folder, incl. answer key
+```
+
+**The row cut is a deliberate trade, not a limit.** 1.5M train / 400k test keeps a
+submission around 5 MB. Using the full 16.5M rows would make a submission 57 MB and push
+scoring memory from 236 MB to 1121 MB, which forces a host with 2 GB of RAM instead of 1 GB.
+The cost of that is real: it is roughly the difference between $44/year and $300/year.
+
+The trade-off, measured (bootstrap SE of the leaderboard score):
+
+| test rows | scoring peak | submission | SE (NE) |
+|---|---|---|---|
+| **400,000** *(current)* | **236 MB** | **5 MB** | **0.0041** |
+| 2,000,000 | 522 MB | 23 MB | 0.0018 |
+| 4,940,409 *(all of it)* | 1121 MB | 57 MB | 0.0012 |
+
+**What the current size costs you:** a leaderboard separates entries about 4× SE apart, so
+at 400k test rows it cannot reliably distinguish two models within **~0.016 NE** of each
+other. That is fine for the gaps that matter here — the base rate and the logistic
+regression are 0.195 apart — but two close entries should not be read as truly ranked. The
+private split has 3.5× more rows, so final standings are sharper than the live board.
+
+**The column drop is mostly about leakage, not size.** Six columns go:
+
+| dropped | why |
+|---|---|
+| `uid`, `campaign` | identity, not features — and `uid` would let you memorise users |
+| `conversion_timestamp` | *when* it converted: the label in disguise |
+| `conversion_id` | groups the impressions of one conversion: the label in disguise |
+| `attribution` | Criteo's last-click flag — nonzero **only** on converting journeys |
+| `cpo` | campaign-level cost per order: leaks the aggregate outcome |
+
+Four of the six are removed because they would give away the answer. The smaller file is a
+side effect.
 
 ---
 

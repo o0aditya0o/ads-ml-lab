@@ -41,7 +41,7 @@ from judge.competitions import COMPETITIONS, Competition  # noqa: E402
 SECRET_FILES = {"solution.parquet"}
 
 PUBLIC_FILES = ["train.csv.gz", "test.csv.gz", "sample_submission.csv.gz",
-                "facts.json"]
+                "facts.json", "preview.json"]
 
 CARD = """\
 ---

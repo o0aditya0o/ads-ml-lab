@@ -194,44 +194,51 @@ def _fmt_count(n: int) -> str:
     return str(n)
 
 
-def competition_facts(comp) -> dict:
-    """Headline numbers for the week page's stat strip.
+def published_json(comp, name: str):
+    """Load a small JSON side-file, locally if present, otherwise from the published repo.
 
-    Reads the small ``facts.json`` written by ``prepare_data`` — locally if present,
-    otherwise from the published dataset repo. It deliberately does **not** stat the data
-    files or count rows in a 41 MB gzip: that costs real time on a cold start and, more to
-    the point, those files do not exist on a host with no local copy of the data, which is
-    the deployment this whole change exists to enable.
+    ``prepare_data`` writes several of these (``facts.json``, ``preview.json``) precisely so
+    the web pages never have to open a 41 MB gzip — which costs real time on a cold start
+    and is impossible on a host with no local copy of the data. Cached per process.
     """
     import json
 
-    blank = {"train_rows": "\u2014", "test_rows": "\u2014", "base_rate": "\u2014",
-             "split": "time", "train_size": "\u2014", "test_size": "\u2014",
-             "sample_size": "\u2014"}
+    cache = getattr(published_json, "_cache", {})
+    key = (comp.week, name)
+    if key in cache:
+        return cache[key]
 
-    cached = getattr(competition_facts, "_cache", {}).get(comp.week)
-    if cached:
-        return cached
-
-    raw = None
-    local = comp.dir / "facts.json"
+    data = None
+    local = comp.dir / name
     if local.exists():
-        raw = json.loads(local.read_text())
+        try:
+            data = json.loads(local.read_text())
+        except ValueError as e:
+            print(f"[data] local {name} for week {comp.week} is unreadable ({e})")
     elif comp.hf_repo:
         try:
             import urllib.request
-            req = urllib.request.Request(comp.remote_url("facts.json"),
+            req = urllib.request.Request(comp.remote_url(name),
                                          headers={"User-Agent": "ads-ml-lab-judge"})
             with urllib.request.urlopen(req, timeout=10) as r:
-                raw = json.load(r)
+                data = json.load(r)
         except Exception as e:
-            print(f"[data] facts.json unavailable for week {comp.week} "
-                  f"({type(e).__name__}); stat strip will show placeholders")
+            print(f"[data] {name} unavailable for week {comp.week} ({type(e).__name__})")
 
+    cache[key] = data
+    published_json._cache = cache
+    return data
+
+
+def competition_facts(comp) -> dict:
+    """Headline numbers for the week page's stat strip."""
+    blank = {"train_rows": "\u2014", "test_rows": "\u2014", "base_rate": "\u2014",
+             "split": "time", "train_size": "\u2014", "test_size": "\u2014",
+             "sample_size": "\u2014"}
+    raw = published_json(comp, "facts.json")
     if not raw:
         return blank
-
-    facts = {
+    return {
         "train_rows": _fmt_count(int(raw["train_rows"])),
         "test_rows": _fmt_count(int(raw["test_rows"])),
         "base_rate": f"{float(raw['base_rate']) * 100:.2f}%",
@@ -240,10 +247,15 @@ def competition_facts(comp) -> dict:
         "test_size": f"{raw['test_size_mb']:.0f} MB",
         "sample_size": f"{raw['sample_size_mb']:.0f} MB",
     }
-    store = getattr(competition_facts, "_cache", {})
-    store[comp.week] = facts
-    competition_facts._cache = store
-    return facts
+
+
+def competition_preview(comp) -> dict:
+    """A few real rows of each file, for the Data tab.
+
+    Returns ``{}`` when unavailable, and the template simply omits the section — a preview
+    is a nicety, not a reason to fail a page.
+    """
+    return published_json(comp, "preview.json") or {}
 
 
 # --------------------------------------------------------------------------------------
@@ -361,7 +373,7 @@ def week_task(request: Request, week: int):
 @app.get("/week/{week}/data", response_class=HTMLResponse)
 def week_data(request: Request, week: int):
     comp, board, ctx = week_ctx(request, week, "data")
-    return render(request, "week_data.html", **ctx)
+    return render(request, "week_data.html", preview=competition_preview(comp), **ctx)
 
 
 @app.get("/week/{week}/submit", response_class=HTMLResponse)
